@@ -376,35 +376,60 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 0 8px;
+  padding: 6px 0 10px;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
 }
 
-.clip-time-input {
-  width: 52px;
-  background: var(--panel-header);
+.btn-inout {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 4px 8px;
+  transition: border-color .15s, background .15s;
+}
+
+.btn-inout--in {
+  border-left: 2px solid var(--accent);
+}
+
+.btn-inout--out {
+  border-right: 2px solid var(--accent);
+}
+
+.btn-inout:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-inout__icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.clip-time-label {
   font-size: 12px;
   font-family: monospace;
-  padding: 3px 6px;
+  color: var(--text);
+  min-width: 36px;
   text-align: center;
 }
 
-.clip-time-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
 .clip-time-sep {
-  color: var(--muted);
+  color: var(--text-muted);
   font-size: 11px;
 }
 
 .clip-time-duration {
-  color: var(--muted);
+  color: var(--text-muted);
   font-size: 11px;
   margin-left: auto;
 }

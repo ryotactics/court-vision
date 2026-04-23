@@ -78,77 +78,52 @@ const fmt = (s: number) => {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
-function parseTimeInput(value: string): number | null {
-  const parts = value.trim().split(':')
-  if (parts.length === 1) {
-    const s = parseFloat(parts[0])
-    return isNaN(s) || s < 0 ? null : s
-  }
-  if (parts.length === 2) {
-    const m = parseInt(parts[0], 10)
-    const s = parseFloat(parts[1])
-    if (isNaN(m) || isNaN(s) || m < 0 || s < 0 || s >= 60) return null
-    return m * 60 + s
-  }
-  return null
-}
-
 function ClipTimeEditor({
   clip,
+  currentTime,
   onUpdate,
+  onSeek,
 }: {
-  clip: { id: string; start: number; end: number }
+  clip: ClipRange
+  currentTime: number
   onUpdate: (start: number, end: number) => void
+  onSeek: (time: number) => void
 }) {
-  const [startDraft, setStartDraft] = useState(fmt(clip.start))
-  const [endDraft, setEndDraft] = useState(fmt(clip.end))
-
-  useEffect(() => { setStartDraft(fmt(clip.start)) }, [clip.start])
-  useEffect(() => { setEndDraft(fmt(clip.end)) }, [clip.end])
-
-  const commitStart = () => {
-    const t = parseTimeInput(startDraft)
-    if (t === null || t >= clip.end) {
-      setStartDraft(fmt(clip.start))
-      return
-    }
-    onUpdate(t, clip.end)
-  }
-
-  const commitEnd = () => {
-    const t = parseTimeInput(endDraft)
-    if (t === null || t <= clip.start) {
-      setEndDraft(fmt(clip.end))
-      return
-    }
-    onUpdate(clip.start, t)
-  }
-
   const duration = Math.max(0, clip.end - clip.start)
+
+  const setIn = () => {
+    if (currentTime >= clip.end) return
+    onUpdate(currentTime, clip.end)
+    onSeek(currentTime)
+  }
+
+  const setOut = () => {
+    if (currentTime <= clip.start) return
+    onUpdate(clip.start, currentTime)
+    onSeek(currentTime)
+  }
 
   return (
     <div className="clip-time-editor">
-      <input
-        className="clip-time-input"
-        value={startDraft}
-        onChange={(event) => setStartDraft(event.target.value)}
-        onBlur={commitStart}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') commitStart()
-        }}
-        aria-label="Clip start time"
-      />
-      <span className="clip-time-sep">&rarr;</span>
-      <input
-        className="clip-time-input"
-        value={endDraft}
-        onChange={(event) => setEndDraft(event.target.value)}
-        onBlur={commitEnd}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') commitEnd()
-        }}
-        aria-label="Clip end time"
-      />
+      <button
+        className="btn-inout btn-inout--in"
+        type="button"
+        onClick={setIn}
+        title={`Set In point to current time (${fmt(currentTime)})`}
+      >
+        <span className="btn-inout__icon">⌐</span> Set In
+      </button>
+      <span className="clip-time-label">{fmt(clip.start)}</span>
+      <span className="clip-time-sep">→</span>
+      <span className="clip-time-label">{fmt(clip.end)}</span>
+      <button
+        className="btn-inout btn-inout--out"
+        type="button"
+        onClick={setOut}
+        title={`Set Out point to current time (${fmt(currentTime)})`}
+      >
+        Set Out <span className="btn-inout__icon">¬</span>
+      </button>
       <span className="clip-time-duration">{Math.round(duration)}s</span>
     </div>
   )
@@ -330,16 +305,11 @@ export default function App() {
   }
 
   const addTeam = (teamName: string) => {
-    if (!project) return
-    const teams = Array.isArray(project.teams) ? project.teams : []
-    const nextTeamName = teamName.trim()
-    if (!nextTeamName || teams.includes(nextTeamName)) return
-
-    setProject({
-      ...project,
-      teams: [...teams, nextTeamName],
-      updatedAt: Date.now(),
-    })
+    if (!project || !teamName.trim()) return
+    const name = teamName.trim()
+    if ((project.teams ?? []).length >= 2) return
+    if ((project.teams ?? []).includes(name)) return
+    setProject({ ...project, teams: [...(project.teams ?? []), name], updatedAt: Date.now() })
   }
 
   const removeTeam = (teamName: string) => {
@@ -472,7 +442,14 @@ export default function App() {
   }
 
   const toggleClipExpanded = (clipId: string) => {
-    setExpandedClipId((current) => (current === clipId ? null : clipId))
+    setExpandedClipId((current) => {
+      const nextId = current === clipId ? null : clipId
+      if (nextId) {
+        const clip = project?.clips.find(c => c.id === clipId)
+        if (clip) seek(clip.start)
+      }
+      return nextId
+    })
     setPlayerDraft('')
   }
 
@@ -592,7 +569,7 @@ export default function App() {
                           </span>
                         ))}
                       </div>
-                      <TeamAddInput onAdd={addTeam} />
+                      {(project.teams ?? []).length < 2 && <TeamAddInput onAdd={addTeam} />}
                     </div>
                   </>
                 ) : (
@@ -664,7 +641,9 @@ export default function App() {
                             <div className="clip-tags" onClick={(event) => event.stopPropagation()}>
                               <ClipTimeEditor
                                 clip={clip}
+                                currentTime={currentTime}
                                 onUpdate={(start, end) => updateClipRange(clip.id, start, end)}
+                                onSeek={seek}
                               />
                               {(project.teams ?? []).length > 0 && (
                                 <div className="clip-tag-row">
