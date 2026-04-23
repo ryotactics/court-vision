@@ -19,6 +19,7 @@ export function VideoPlayer({
 
   return (
     <video
+      key={src}
       ref={playerRef}
       className="video-player"
       src={src}

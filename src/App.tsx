@@ -6,8 +6,6 @@ import { SaveIndicator } from './components/SaveIndicator/SaveIndicator'
 import { Timeline } from './components/Timeline/Timeline'
 import { VideoPlayer } from './components/VideoPlayer/VideoPlayer'
 import { useAutoSave } from './hooks/useAutoSave'
-import { useFileSystemAccess } from './hooks/useFileSystemAccess'
-import { useVideoFile } from './hooks/useVideoFile'
 import { useProjectStore } from './store/projectStore'
 import type { Annotation, ClipRange, Marker, ProjectData } from './types'
 
@@ -30,7 +28,7 @@ const fmt = (s: number) => {
 }
 
 export default function App() {
-  const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [canvasSize, setCanvasSize] = useState({ width: 1280, height: 720 })
   const [editingClipId, setEditingClipId] = useState<string | null>(null)
@@ -44,9 +42,13 @@ export default function App() {
   const updateClips = useProjectStore((s) => s.updateClips)
   const updateAnnotations = useProjectStore((s) => s.updateAnnotations)
 
-  const { url } = useVideoFile(videoFile)
   const saveStatus = useAutoSave(project)
-  const { openFile } = useFileSystemAccess()
+
+  useEffect(() => {
+    return () => {
+      if (videoUrl) URL.revokeObjectURL(videoUrl)
+    }
+  }, [videoUrl])
 
   useEffect(() => {
     const stage = videoStageRef.current
@@ -59,10 +61,10 @@ export default function App() {
     const obs = new ResizeObserver(update)
     obs.observe(stage)
     return () => obs.disconnect()
-  }, [url])
+  }, [videoUrl])
 
-  const handleFile = (file: File) => {
-    setVideoFile(file)
+  const handleFile = (file: File, url: string) => {
+    setVideoUrl(url)
     setCurrentTime(0)
     setProject(createProject(file))
   }
@@ -255,10 +257,10 @@ export default function App() {
 
           {/* Viewer */}
           <div className="viewer">
-            {url && project ? (
+            {videoUrl && project ? (
               <div className="video-stage" ref={videoStageRef}>
                 <VideoPlayer
-                  src={url}
+                  src={videoUrl}
                   onDurationChange={setDuration}
                   onTimeUpdate={setCurrentTime}
                   playerRef={videoPlayerRef}
@@ -272,7 +274,7 @@ export default function App() {
                 />
               </div>
             ) : (
-              <FileImporter onFile={handleFile} onOpenFile={openFile} />
+              <FileImporter onFile={handleFile} />
             )}
           </div>
 

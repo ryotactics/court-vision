@@ -1,23 +1,41 @@
 import { useRef, useState } from 'react'
 
 type FileImporterProps = {
-  onFile: (file: File) => void
-  onOpenFile?: () => Promise<File | null>
+  onFile: (file: File, url: string) => void
+}
+
+const VIDEO_ACCEPT =
+  'video/mp4,video/quicktime,video/x-m4v,video/x-matroska,video/webm,video/x-msvideo,.mp4,.mov,.m4v,.mkv,.webm,.avi'
+
+const VIDEO_MIME_TYPES = new Set([
+  'video/mp4',
+  'video/quicktime',
+  'video/x-m4v',
+  'video/x-matroska',
+  'video/webm',
+  'video/x-msvideo',
+])
+
+const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'm4v', 'mkv', 'webm', 'avi'])
+
+const isVideoFile = (file: File) => {
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+  return VIDEO_MIME_TYPES.has(file.type) || VIDEO_EXTENSIONS.has(extension)
 }
 
 const getVideoFile = (files: FileList | null) =>
-  files ? Array.from(files).find((f) => f.type.startsWith('video/')) : null
+  files ? Array.from(files).find(isVideoFile) : null
 
-export function FileImporter({ onFile, onOpenFile }: FileImporterProps) {
+export function FileImporter({ onFile }: FileImporterProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   const handleFile = (file: File | null | undefined) => {
-    if (file?.type.startsWith('video/')) onFile(file)
+    if (!file || !isVideoFile(file)) return
+    onFile(file, URL.createObjectURL(file))
   }
 
   const openFile = () => {
-    if (onOpenFile) { void onOpenFile().then(handleFile); return }
     inputRef.current?.click()
   }
 
@@ -33,8 +51,12 @@ export function FileImporter({ onFile, onOpenFile }: FileImporterProps) {
         ref={inputRef}
         className="file-importer__input"
         type="file"
-        accept="video/*"
-        onChange={(e) => handleFile(getVideoFile(e.currentTarget.files))}
+        hidden
+        accept={VIDEO_ACCEPT}
+        onChange={(e) => {
+          handleFile(getVideoFile(e.currentTarget.files))
+          e.currentTarget.value = ''
+        }}
       />
 
       {/* Icon */}

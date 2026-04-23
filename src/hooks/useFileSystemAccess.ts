@@ -1,24 +1,39 @@
-import { useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 
-type VideoFilePickerWindow = Window & {
-  showOpenFilePicker?: (options?: {
-    multiple?: boolean
-    types?: {
-      description?: string
-      accept: Record<string, string[]>
-    }[]
-  }) => Promise<FileSystemFileHandle[]>
+const VIDEO_ACCEPT =
+  'video/mp4,video/quicktime,video/x-m4v,video/x-matroska,video/webm,video/x-msvideo,.mp4,.mov,.m4v,.mkv,.webm,.avi'
+
+const VIDEO_MIME_TYPES = new Set([
+  'video/mp4',
+  'video/quicktime',
+  'video/x-m4v',
+  'video/x-matroska',
+  'video/webm',
+  'video/x-msvideo',
+])
+
+const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'm4v', 'mkv', 'webm', 'avi'])
+
+const isVideoFile = (file: File) => {
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+  return VIDEO_MIME_TYPES.has(file.type) || VIDEO_EXTENSIONS.has(extension)
+}
+
+type PickedVideoFile = {
+  file: File
+  url: string
 }
 
 const openFallbackInput = () =>
-  new Promise<File | null>((resolve) => {
+  new Promise<PickedVideoFile | null>((resolve) => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = 'video/*'
+    input.accept = VIDEO_ACCEPT
     input.hidden = true
 
     input.addEventListener('change', () => {
-      resolve(input.files?.[0] ?? null)
+      const file = input.files?.[0] ?? null
+      resolve(file && isVideoFile(file) ? { file, url: URL.createObjectURL(file) } : null)
       input.remove()
     })
 
@@ -32,31 +47,8 @@ const openFallbackInput = () =>
   })
 
 export const useFileSystemAccess = () => {
-  const fileHandleRef = useRef<FileSystemFileHandle | null>(null)
-
   const openFile = useCallback(async () => {
-    const picker = (window as VideoFilePickerWindow).showOpenFilePicker
-
-    if (!picker) {
-      fileHandleRef.current = null
-      return openFallbackInput()
-    }
-
-    const handles = await picker({
-      multiple: false,
-      types: [
-        {
-          description: 'Video files',
-          accept: {
-            'video/*': ['.mp4', '.mov', '.m4v', '.webm', '.avi'],
-          },
-        },
-      ],
-    })
-    const handle = handles[0] ?? null
-    fileHandleRef.current = handle
-
-    return handle ? handle.getFile() : null
+    return openFallbackInput()
   }, [])
 
   return { openFile }
