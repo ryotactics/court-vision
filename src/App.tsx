@@ -6,6 +6,7 @@ import { SaveIndicator } from './components/SaveIndicator/SaveIndicator'
 import { Timeline } from './components/Timeline/Timeline'
 import { VideoPlayer } from './components/VideoPlayer/VideoPlayer'
 import { useAutoSave } from './hooks/useAutoSave'
+import { useFfmpeg } from './hooks/useFfmpeg'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useProjectStore } from './store/projectStore'
 import type { Annotation, ClipRange, ClipTags, Marker, ProjectData } from './types'
@@ -40,11 +41,10 @@ const fmt = (s: number) => {
 
 export default function App() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [videoFile, setVideoFile] = useState<File | null>(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [canvasSize, setCanvasSize] = useState({ width: 1280, height: 720 })
-  const [editingClipId, setEditingClipId] = useState<string | null>(null)
   const [expandedClipId, setExpandedClipId] = useState<string | null>(null)
-  const [clipLabelDraft, setClipLabelDraft] = useState('')
   const [playerDraft, setPlayerDraft] = useState('')
   const [isKeyboardHelpOpen, setIsKeyboardHelpOpen] = useState(false)
   const [preRollSec, setPreRollSec] = useState(10)
@@ -53,6 +53,7 @@ export default function App() {
   const [zoomStart, setZoomStart] = useState(0)
   const videoPlayerRef = useRef<HTMLVideoElement | null>(null)
   const videoStageRef = useRef<HTMLDivElement | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
 
   const project = useProjectStore((s) => s.project)
   const setProject = useProjectStore((s) => s.setProject)
@@ -61,6 +62,7 @@ export default function App() {
   const updateAnnotations = useProjectStore((s) => s.updateAnnotations)
 
   const saveStatus = useAutoSave(project)
+  const ffmpeg = useFfmpeg()
 
   useEffect(() => {
     return () => {
@@ -97,6 +99,7 @@ export default function App() {
 
   const handleFile = (file: File, url: string) => {
     setVideoUrl(url)
+    setVideoFile(file)
     setCurrentTime(0)
     setPlayingClipId(null)
     setZoomLevel(1)
@@ -211,21 +214,6 @@ export default function App() {
     updateAnnotations([...project.annotations, annotation])
   }
 
-  const startClipLabelEdit = (clip: ClipRange) => {
-    setEditingClipId(clip.id)
-    setClipLabelDraft(clip.label)
-  }
-
-  const saveClipLabel = (clipId: string) => {
-    if (!project) return
-    const label = clipLabelDraft.trim()
-    updateClips(project.clips.map((clip) => (
-      clip.id === clipId ? { ...clip, label: label || clip.label, labelIsCustom: true } : clip
-    )))
-    setEditingClipId(null)
-    setClipLabelDraft('')
-  }
-
   const updateClipTags = (clipId: string, nextTags: ClipTags) => {
     if (!project) return
     updateClips(project.clips.map((clip) => {
@@ -286,13 +274,26 @@ export default function App() {
       videoPlayerRef.current?.pause()
       setPlayingClipId(null)
     }
-    if (editingClipId === clipId) {
-      setEditingClipId(null)
-      setClipLabelDraft('')
-    }
     if (expandedClipId === clipId) {
       setExpandedClipId(null)
       setPlayerDraft('')
+    }
+  }
+
+  const toggleClipExpanded = (clipId: string) => {
+    setExpandedClipId((current) => (current === clipId ? null : clipId))
+    setPlayerDraft('')
+  }
+
+  const exportExpandedClip = async () => {
+    if (!expandedClip || !videoFile || isExporting || ffmpeg.isLoading) return
+
+    setIsExporting(true)
+    try {
+      await ffmpeg.load()
+      await ffmpeg.exportClip(videoFile, expandedClip.start, expandedClip.end, `${expandedClip.label}.mp4`)
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -400,63 +401,28 @@ export default function App() {
 
                       return (
                         <div className="clip-item" key={clip.id}>
-                          <div
-                            className={`clip-row${selectedClipId === clip.id ? ' clip-row--selected' : ''}`}
-                            onClick={() => seek(clip.start)}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter' || event.key === ' ') seek(clip.start)
-                            }}
-                            role="button"
-                            tabIndex={0}
-                          >
-                            <button
-                              className={`clip-row__expand${isExpanded ? ' clip-row__expand--open' : ''}`}
+                          <div className={`clip-row${selectedClipId === clip.id ? ' clip-row--selected' : ''}`}>
+                            <div
+                              className="clip-row__main"
+                              onClick={() => toggleClipExpanded(clip.id)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault()
+                                  toggleClipExpanded(clip.id)
+                                }
+                              }}
+                              role="button"
+                              tabIndex={0}
                               aria-expanded={isExpanded}
                               aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${clip.label} tags`}
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                setExpandedClipId(isExpanded ? null : clip.id)
-                                setPlayerDraft('')
-                              }}
-                              type="button"
                             >
-                              ▸
-                            </button>
-                            <div className="clip-row__main">
-                              {editingClipId === clip.id ? (
-                                <input
-                                  autoFocus
-                                  className="clip-row__input"
-                                  value={clipLabelDraft}
-                                  onBlur={() => saveClipLabel(clip.id)}
-                                  onChange={(event) => setClipLabelDraft(event.target.value)}
-                                  onClick={(event) => event.stopPropagation()}
-                                  onKeyDown={(event) => {
-                                    event.stopPropagation()
-                                    if (event.key === 'Enter') saveClipLabel(clip.id)
-                                    if (event.key === 'Escape') {
-                                      setEditingClipId(null)
-                                      setClipLabelDraft('')
-                                    }
-                                  }}
-                                />
-                              ) : (
-                                <span
-                                  className="clip-row__label"
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    startClipLabelEdit(clip)
-                                  }}
-                                  title={clip.label}
-                                >
-                                  {clip.label}
-                                </span>
-                              )}
+                              <span className="clip-row__label" title={clip.label}>
+                                {clip.label}
+                              </span>
                               <span className="clip-row__range">
                                 {fmt(clip.start)} &rarr; {fmt(clip.end)}
                               </span>
                             </div>
-                            <span className="clip-row__duration">{Math.round(Math.max(0, clip.end - clip.start))}s</span>
                             <button
                               className={`clip-row__play${isPlayingClip ? ' clip-row__play--active' : ''}`}
                               aria-label={`${isPlayingClip ? 'Pause' : 'Play'} ${clip.label}`}
@@ -595,6 +561,29 @@ export default function App() {
                   <option key={n} value={n}>{n} s</option>
                 ))}
               </select>
+            </div>
+            <div className="panel-section panel-section--export">
+              <div className="panel-body">
+                <button
+                  className="btn-primary btn-block"
+                  onClick={exportExpandedClip}
+                  disabled={!expandedClip || !videoFile || ffmpeg.isLoading || isExporting}
+                  type="button"
+                >
+                  {ffmpeg.isLoading ? 'Loading ffmpeg...' : isExporting ? 'Exporting...' : 'Export selected clips'}
+                </button>
+                {(ffmpeg.isLoading || isExporting) && (
+                  <div className="export-progress">
+                    <span>{ffmpeg.isLoading ? 'Preparing exporter' : `${Math.round(ffmpeg.progress)}%`}</span>
+                    <div className="progress-bar" aria-hidden="true">
+                      <div
+                        className="progress-bar__fill"
+                        style={{ width: `${Math.max(0, Math.min(100, ffmpeg.progress))}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </aside>
 
