@@ -1,0 +1,45 @@
+:root {
+  --bg:            #08080f;
+  --bg-deep:       #050508;
+  --panel:         #0f0f18;
+  --panel-alt:     #13131e;
+  --panel-header:  #1a1a28;
+  --border:        #1e1e30;
+  --border-mid:    #28283c;
+  --border-strong: #36364e;
+  --text:          #b8b8d0;
+  --text-h:        #e8e8ff;
+  --muted:         #5a5a78;
+  --accent:        #7c3aed;
+  --accent-hover:  #8b5cf6;
+  --accent-light:  #a78bfa;
+  --accent-soft:   #1a0f35;
+  --accent-glow:   rgba(124, 58, 237, 0.25);
+  --green:         #10b981;
+  --amber:         #f59e0b;
+  --red:           #ef4444;
+
+  color: var(--text);
+  background: var(--bg);
+  font: 13px/1.45 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+h1, h2, h3, p {
+  margin: 0;
+}
+
+h1 { font-size: 20px; font-weight: 700; color: var(--text-h); }
+h2 { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
