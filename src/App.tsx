@@ -82,25 +82,23 @@ function ClipTimeEditor({
   clip,
   currentTime,
   onUpdate,
-  onSeek,
 }: {
   clip: ClipRange
   currentTime: number
   onUpdate: (start: number, end: number) => void
-  onSeek: (time: number) => void
 }) {
   const duration = Math.max(0, clip.end - clip.start)
 
   const setIn = () => {
-    if (currentTime >= clip.end) return
-    onUpdate(currentTime, clip.end)
-    onSeek(currentTime)
+    const newStart = currentTime
+    const newEnd = newStart >= clip.end ? newStart + 1 : clip.end
+    onUpdate(newStart, newEnd)
   }
 
   const setOut = () => {
-    if (currentTime <= clip.start) return
-    onUpdate(clip.start, currentTime)
-    onSeek(currentTime)
+    const newEnd = currentTime
+    const newStart = newEnd <= clip.start ? Math.max(0, newEnd - 1) : clip.start
+    onUpdate(newStart, newEnd)
   }
 
   return (
@@ -109,21 +107,27 @@ function ClipTimeEditor({
         className="btn-inout btn-inout--in"
         type="button"
         onClick={setIn}
-        title={`Set In point to current time (${fmt(currentTime)})`}
+        aria-label="Set In point to current time"
       >
-        <span className="btn-inout__icon">⌐</span> Set In
+        <span className="btn-inout__badge">IN</span>
+        <span className="btn-inout__ts">{fmt(clip.start)}</span>
       </button>
-      <span className="clip-time-label">{fmt(clip.start)}</span>
-      <span className="clip-time-sep">→</span>
-      <span className="clip-time-label">{fmt(clip.end)}</span>
+
+      <div className="clip-current-time">
+        <span className="clip-current-time__label">Now</span>
+        <span className="clip-current-time__val">{fmt(currentTime)}</span>
+      </div>
+
       <button
         className="btn-inout btn-inout--out"
         type="button"
         onClick={setOut}
-        title={`Set Out point to current time (${fmt(currentTime)})`}
+        aria-label="Set Out point to current time"
       >
-        Set Out <span className="btn-inout__icon">¬</span>
+        <span className="btn-inout__ts">{fmt(clip.end)}</span>
+        <span className="btn-inout__badge">OUT</span>
       </button>
+
       <span className="clip-time-duration">{Math.round(duration)}s</span>
     </div>
   )
@@ -532,6 +536,14 @@ export default function App() {
 
         <div className="titlebar-actions">
           <SaveIndicator status={saveStatus} />
+          <button
+            className="titlebar-help-btn"
+            type="button"
+            aria-label="Keyboard shortcuts"
+            onClick={() => setIsKeyboardHelpOpen(true)}
+          >
+            ?
+          </button>
         </div>
       </header>
 
@@ -643,7 +655,6 @@ export default function App() {
                                 clip={clip}
                                 currentTime={currentTime}
                                 onUpdate={(start, end) => updateClipRange(clip.id, start, end)}
-                                onSeek={seek}
                               />
                               {(project.teams ?? []).length > 0 && (
                                 <div className="clip-tag-row">
@@ -893,7 +904,7 @@ export default function App() {
             <div className="shortcut-modal__section">
               <h3>Edit</h3>
               <div className="shortcut-row"><span className="shortcut-keys"><kbd>M</kbd></span><span>Add marker at current time</span></div>
-              <div className="shortcut-row"><span className="shortcut-keys"><kbd>C</kbd></span><span>Add clip around current time</span></div>
+              <div className="shortcut-row"><span className="shortcut-keys"><kbd>S</kbd><kbd>C</kbd></span><span>Add clip around current time</span></div>
             </div>
 
             <div className="shortcut-modal__section">

@@ -79,7 +79,7 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers) {
         return
       }
 
-      if (key === 'c') {
+      if (key === 'c' || key === 's') {
         event.preventDefault()
         handlers.onAddClip()
         return

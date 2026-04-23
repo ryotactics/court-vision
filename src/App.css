@@ -66,6 +66,27 @@
   gap: 10px;
 }
 
+.titlebar-help-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border-mid);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color .15s, color .15s;
+}
+
+.titlebar-help-btn:hover {
+  border-color: var(--accent-light);
+  color: var(--accent-light);
+}
+
 /* ─── Editor (after file loaded) ────────────────────── */
 .editor {
   flex: 1;
@@ -375,63 +396,70 @@
 .clip-time-editor {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 6px 0 10px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 6px;
-  flex-wrap: wrap;
 }
 
 .btn-inout {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
+  gap: 5px;
+  background: rgba(124,58,237,0.15);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  color: var(--accent-light);
   cursor: pointer;
   font-size: 11px;
-  padding: 4px 8px;
-  transition: border-color .15s, background .15s;
-}
-
-.btn-inout--in {
-  border-left: 2px solid var(--accent);
-}
-
-.btn-inout--out {
-  border-right: 2px solid var(--accent);
+  padding: 5px 10px;
+  transition: background .15s, color .15s;
 }
 
 .btn-inout:hover {
   background: var(--accent);
-  border-color: var(--accent);
   color: #fff;
 }
 
-.btn-inout__icon {
-  font-size: 13px;
-  line-height: 1;
+.btn-inout__badge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  opacity: .8;
 }
 
-.clip-time-label {
-  font-size: 12px;
+.btn-inout__ts {
   font-family: monospace;
-  color: var(--text);
-  min-width: 36px;
-  text-align: center;
+  font-size: 12px;
 }
 
-.clip-time-sep {
-  color: var(--text-muted);
-  font-size: 11px;
+.clip-current-time {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.clip-current-time__label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
+
+.clip-current-time__val {
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-h);
 }
 
 .clip-time-duration {
-  color: var(--text-muted);
   font-size: 11px;
-  margin-left: auto;
+  color: var(--muted);
+  min-width: 28px;
+  text-align: right;
 }
 
 .clip-tag-row {
@@ -678,7 +706,7 @@
 
 /* ─── Timeline Dock ──────────────────────────────────── */
 .timeline-dock {
-  height: 160px;
+  height: 180px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -763,50 +791,78 @@
 .timeline-svg {
   display: block;
   width: 100%;
-  height: 88px;
+  height: 110px;
   cursor: pointer;
   user-select: none;
 }
 
 .timeline-svg--dragging { cursor: ew-resize; }
-.timeline-bg { fill: transparent; }
 
-.timeline-track {
+.timeline-ruler-bg {
+  fill: rgba(0,0,0,0.3);
+}
+
+.timeline-tick {
   stroke: var(--border-strong);
-  stroke-width: 6;
-  stroke-linecap: round;
+  stroke-width: 1;
+}
+
+.timeline-tick-label {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.timeline-track-bg {
+  fill: rgba(255,255,255,0.04);
+  stroke: var(--border-mid);
+  stroke-width: 1;
 }
 
 .timeline-clip {
   fill: var(--accent);
-  opacity: .3;
+  opacity: .55;
 }
 
-.timeline-marker { stroke-width: 2; }
+.timeline-clip-label {
+  fill: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
 
-.timeline-label {
-  fill: var(--accent-light);
-  font-size: 14px;
+.timeline-marker {
+  stroke-width: 1.5;
+  opacity: .9;
+}
+
+.timeline-marker-label {
+  font-size: 10px;
   font-weight: 600;
 }
 
 .timeline-playhead {
-  stroke: var(--accent-light);
-  stroke-width: 2;
+  stroke: #fff;
+  stroke-width: 1.5;
+  pointer-events: none;
 }
 
 .timeline-playhead-handle {
-  fill: var(--accent-light);
+  fill: #fff;
+  pointer-events: none;
 }
 
 .timeline-meta {
   display: flex;
-  align-items: center;
   justify-content: space-between;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
-  margin-top: 2px;
+  padding: 2px 4px;
+}
+
+.timeline-meta-current {
+  color: var(--accent-light);
+  font-weight: 700;
 }
 
 .preroll-select {

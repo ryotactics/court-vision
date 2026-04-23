@@ -13,7 +13,11 @@ type TimelineProps = {
 }
 
 const width = 1000
-const height = 132
+const svgHeight = 110
+const rulerHeight = 24
+const trackTop = 30
+const trackHeight = 56
+const tickSteps = [1, 5, 10, 30, 60, 300]
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max)
@@ -51,6 +55,13 @@ export function Timeline({
 
   const ratio = visibleDuration > 0 ? clamp((currentTime - visibleStart) / visibleDuration, 0, 1) : 0
   const playheadX = ratio * width
+  const tickStep = tickSteps.find((step) => visibleDuration / step <= 12) ?? tickSteps[tickSteps.length - 1]
+  const firstTick = Math.ceil(visibleStart / tickStep) * tickStep
+  const ticks: number[] = []
+
+  for (let tickTime = firstTick; tickTime <= visibleEnd; tickTime += tickStep) {
+    ticks.push(tickTime)
+  }
 
   useEffect(() => {
     if (safeDuration <= 0 || safeZoomLevel <= 1) return
@@ -86,7 +97,7 @@ export function Timeline({
     <section className="timeline-panel">
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox={`0 0 ${width} ${svgHeight}`}
         className={`timeline-svg ${isDragging ? 'timeline-svg--dragging' : ''}`}
         role="img"
         onClick={(event) => seekFromClientX(event.clientX)}
@@ -108,8 +119,33 @@ export function Timeline({
         }}
       >
         <title>Project timeline</title>
-        <rect x="0" y="0" width={width} height={height} className="timeline-bg" />
-        <line x1="0" y1="72" x2={width} y2="72" className="timeline-track" />
+        <rect x="0" y="0" width={width} height={rulerHeight} className="timeline-ruler-bg" />
+        {ticks.map((tickTime) => {
+          const tickX = timeToX(tickTime)
+
+          return (
+            <g key={tickTime}>
+              <line
+                x1={tickX}
+                y1={rulerHeight - 7}
+                x2={tickX}
+                y2={rulerHeight}
+                className="timeline-tick"
+              />
+              <text x={tickX + 4} y="14" className="timeline-tick-label">
+                {formatTime(tickTime)}
+              </text>
+            </g>
+          )
+        })}
+        <rect
+          x="0"
+          y={trackTop}
+          width={width}
+          height={trackHeight}
+          rx="4"
+          className="timeline-track-bg"
+        />
         {clips.map((clip) => {
           if (clip.end < visibleStart || clip.start > visibleEnd) return null
 
@@ -121,14 +157,21 @@ export function Timeline({
             <g key={clip.id}>
               <rect
                 x={clamp(clipStart, 0, width)}
-                y="50"
+                y={trackTop + 2}
                 width={Math.max(clipWidth, 3)}
-                height="44"
+                height={trackHeight - 4}
+                rx="3"
                 className="timeline-clip"
               />
-              <text x={clamp(clipStart + 6, 6, width - 80)} y="45" className="timeline-label">
-                {clip.label}
-              </text>
+              {clipWidth > 30 && (
+                <text
+                  x={clamp(clipStart + 6, 6, width - 80)}
+                  y={trackTop + 32}
+                  className="timeline-clip-label"
+                >
+                  {clip.label}
+                </text>
+              )}
             </g>
           )
         })}
@@ -141,16 +184,17 @@ export function Timeline({
             <g key={marker.id}>
               <line
                 x1={markerX}
-                y1="24"
+                y1={rulerHeight}
                 x2={markerX}
-                y2="112"
+                y2={svgHeight}
                 className="timeline-marker"
                 style={{ stroke: marker.color }}
               />
               <text
                 x={clamp(markerX + 6, 6, width - 100)}
-                y="22"
-                className="timeline-label"
+                y={rulerHeight - 4}
+                className="timeline-marker-label"
+                style={{ fill: marker.color }}
               >
                 {marker.label}
               </text>
@@ -159,16 +203,19 @@ export function Timeline({
         })}
         <line
           x1={playheadX}
-          y1="10"
+          y1="0"
           x2={playheadX}
-          y2="122"
+          y2={svgHeight}
           className="timeline-playhead"
         />
-        <circle cx={playheadX} cy="10" r="8" className="timeline-playhead-handle" />
+        <polygon
+          points={`${playheadX - 6},0 ${playheadX + 6},0 ${playheadX},8`}
+          className="timeline-playhead-handle"
+        />
       </svg>
       <div className="timeline-meta">
         <span>{formatTime(visibleStart)}</span>
-        <span>{formatTime(currentTime)}</span>
+        <span className="timeline-meta-current">{formatTime(currentTime)}</span>
         <span>{formatTime(visibleEnd)}</span>
       </div>
     </section>
