@@ -182,14 +182,19 @@
   gap: 4px;
 }
 
+.clip-item {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
 .clip-row {
   position: relative;
   min-height: 52px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  column-gap: 8px;
-  padding: 7px 24px 7px 9px;
+  column-gap: 6px;
+  padding: 7px 26px 7px 9px;
   border-left: 2px solid transparent;
   border-radius: 4px;
   cursor: pointer;
@@ -205,6 +210,26 @@
 .clip-row--selected {
   border-left-color: var(--accent-light);
   background: rgba(167,139,250,.06);
+}
+
+.clip-row__expand {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  transition: color .12s, transform .12s;
+}
+
+.clip-row__expand:hover {
+  background: transparent;
+  color: var(--text-h);
+}
+
+.clip-row__expand--open {
+  color: var(--accent-light);
+  transform: rotate(90deg);
 }
 
 .clip-row__main {
@@ -234,6 +259,23 @@
 .clip-row__duration {
   justify-self: end;
   white-space: nowrap;
+}
+
+.clip-row__play {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-color: var(--border-mid);
+  color: var(--accent-light);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.clip-row__play:hover,
+.clip-row__play--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text-h);
 }
 
 .clip-row__input {
@@ -275,6 +317,96 @@
 .clip-row__delete:hover {
   background: transparent;
   color: var(--text-h);
+}
+
+.clip-tags {
+  padding: 8px 9px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,.2);
+}
+
+.clip-tag-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.clip-tag-row:last-child {
+  margin-bottom: 0;
+}
+
+.clip-tags__label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tag-btn {
+  min-width: 28px;
+  height: 24px;
+  padding: 0 7px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.tag-btn--active-phase {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.tag-btn--active-error {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+
+.tag-btn--active-phase:hover {
+  background: var(--accent-hover);
+  color: #fff;
+  border-color: var(--accent-hover);
+}
+
+.tag-btn--active-error:hover {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+
+.player-badge {
+  height: 22px;
+  padding: 0 6px;
+  border-color: rgba(167,139,250,.35);
+  background: var(--accent-soft);
+  color: var(--accent-light);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.player-badge:hover {
+  border-color: var(--accent-light);
+  background: rgba(124,58,237,.25);
+  color: var(--text-h);
+}
+
+.player-add-input {
+  width: 48px;
+  height: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 6px;
+  outline: none;
+}
+
+.player-add-input:focus {
+  border-color: var(--accent);
 }
 
 /* ─── Viewer ─────────────────────────────────────────── */
@@ -419,6 +551,36 @@
   font-weight: 600;
 }
 
+.zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zoom-btn {
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border-color: var(--border-mid);
+  color: var(--text-h);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.zoom-btn:disabled {
+  cursor: default;
+  opacity: .45;
+}
+
+.zoom-label {
+  min-width: 30px;
+  text-align: center;
+  color: var(--accent-light);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .timeline-inner {
   flex: 1;
   padding: 0 14px 8px;
@@ -484,6 +646,24 @@
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   margin-top: 2px;
+}
+
+.preroll-select {
+  width: 100%;
+  background: var(--panel-alt);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.preroll-label {
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 4px;
 }
 
 /* ─── Buttons ────────────────────────────────────────── */
@@ -570,6 +750,101 @@ button:hover {
 }
 .save-indicator--error .save-indicator__dot {
   background: var(--red);
+}
+
+/* ─── Keyboard Shortcuts Modal ───────────────────────── */
+.shortcut-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0,0,0,.7);
+}
+
+.shortcut-modal__card {
+  width: min(520px, 100%);
+  max-height: min(680px, calc(100vh - 48px));
+  overflow-y: auto;
+  border: 1px solid var(--border-mid);
+  border-radius: 6px;
+  background: var(--panel);
+  box-shadow: 0 18px 64px rgba(0,0,0,.55);
+}
+
+.shortcut-modal__header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-header);
+}
+
+.shortcut-modal__header h2 {
+  color: var(--text-h);
+}
+
+.shortcut-modal__close {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+}
+
+.shortcut-modal__section {
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcut-modal__section:last-child {
+  border-bottom: 0;
+}
+
+.shortcut-modal__section h3 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.shortcut-row {
+  min-height: 28px;
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.shortcut-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--panel-header);
+  color: var(--text-h);
+  font-size: 11px;
+  font-family: inherit;
+  min-width: 24px;
+  justify-content: center;
 }
 
 @keyframes pulse {

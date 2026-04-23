@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ClipRange, Marker } from '../../types'
 
 type TimelineProps = {
@@ -6,6 +6,9 @@ type TimelineProps = {
   currentTime: number
   markers: Marker[]
   clips: ClipRange[]
+  zoomLevel: number
+  zoomStart: number
+  onZoomChange: (zoomLevel: number, zoomStart: number) => void
   onSeek: (time: number) => void
 }
 
@@ -27,22 +30,56 @@ export function Timeline({
   currentTime,
   markers,
   clips,
+  zoomLevel,
+  zoomStart,
+  onZoomChange,
   onSeek,
 }: TimelineProps) {
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const safeDuration = Math.max(duration, 0)
-  const ratio = safeDuration > 0 ? clamp(currentTime / safeDuration, 0, 1) : 0
+  const safeZoomLevel = Math.max(zoomLevel, 1)
+  const visibleDuration = safeDuration > 0 ? safeDuration / safeZoomLevel : 0
+  const maxZoomStart = Math.max(0, safeDuration - visibleDuration)
+  const visibleStart = clamp(zoomStart, 0, maxZoomStart)
+  const visibleEnd = Math.min(safeDuration, visibleStart + visibleDuration)
+
+  const timeToX = (time: number) => {
+    if (visibleDuration <= 0) return 0
+    return clamp(((time - visibleStart) / visibleDuration) * width, 0, width)
+  }
+
+  const ratio = visibleDuration > 0 ? clamp((currentTime - visibleStart) / visibleDuration, 0, 1) : 0
   const playheadX = ratio * width
+
+  useEffect(() => {
+    if (safeDuration <= 0 || safeZoomLevel <= 1) return
+    if (currentTime >= visibleStart && currentTime <= visibleEnd) return
+
+    const nextStart = currentTime < visibleStart
+      ? currentTime
+      : currentTime - visibleDuration
+
+    onZoomChange(safeZoomLevel, clamp(nextStart, 0, maxZoomStart))
+  }, [
+    currentTime,
+    maxZoomStart,
+    onZoomChange,
+    safeDuration,
+    safeZoomLevel,
+    visibleDuration,
+    visibleEnd,
+    visibleStart,
+  ])
 
   const seekFromClientX = (clientX: number) => {
     const bounds = svgRef.current?.getBoundingClientRect()
-    if (!bounds || safeDuration === 0) {
+    if (!bounds || visibleDuration === 0) {
       return
     }
 
     const nextRatio = clamp((clientX - bounds.left) / bounds.width, 0, 1)
-    onSeek(nextRatio * safeDuration)
+    onSeek(visibleStart + nextRatio * visibleDuration)
   }
 
   return (
@@ -74,9 +111,11 @@ export function Timeline({
         <rect x="0" y="0" width={width} height={height} className="timeline-bg" />
         <line x1="0" y1="72" x2={width} y2="72" className="timeline-track" />
         {clips.map((clip) => {
-          const clipStart = safeDuration > 0 ? (clip.start / safeDuration) * width : 0
-          const clipWidth =
-            safeDuration > 0 ? ((clip.end - clip.start) / safeDuration) * width : 0
+          if (clip.end < visibleStart || clip.start > visibleEnd) return null
+
+          const clipStart = timeToX(clip.start)
+          const clipEnd = timeToX(clip.end)
+          const clipWidth = clipEnd - clipStart
 
           return (
             <g key={clip.id}>
@@ -94,7 +133,9 @@ export function Timeline({
           )
         })}
         {markers.map((marker) => {
-          const markerX = safeDuration > 0 ? (marker.time / safeDuration) * width : 0
+          if (marker.time < visibleStart || marker.time > visibleEnd) return null
+
+          const markerX = timeToX(marker.time)
 
           return (
             <g key={marker.id}>
@@ -126,8 +167,9 @@ export function Timeline({
         <circle cx={playheadX} cy="10" r="8" className="timeline-playhead-handle" />
       </svg>
       <div className="timeline-meta">
+        <span>{formatTime(visibleStart)}</span>
         <span>{formatTime(currentTime)}</span>
-        <span>{formatTime(duration)}</span>
+        <span>{formatTime(visibleEnd)}</span>
       </div>
     </section>
   )

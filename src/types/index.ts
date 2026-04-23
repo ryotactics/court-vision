@@ -7,11 +7,19 @@ export type Marker = {
   color: string
 }
 
+export type ClipTags = {
+  phase: 'O' | 'D' | null
+  error: boolean
+  players: string[]
+}
+
 export type ClipRange = {
   id: string
   start: number
   end: number
   label: string
+  labelIsCustom: boolean
+  tags: ClipTags
 }
 
 export type Annotation = {
