@@ -12,20 +12,59 @@ import { useProjectStore } from './store/projectStore'
 import type { Annotation, ClipRange, ClipTags, Marker, ProjectData } from './types'
 import { generateClipLabel } from './utils/clipLabel'
 
-const defaultClipTags: ClipTags = { phase: null, error: false, players: [] }
+const defaultClipTags: ClipTags = { team: null, phase: null, error: false, players: [] }
 const zoomLevels = [1, 2, 5, 10, 20]
 
 const normalizeClipTags = (tags?: Partial<ClipTags>): ClipTags => ({
+  team: typeof tags?.team === 'string' && tags.team.trim() ? tags.team : null,
   phase: tags?.phase === 'O' || tags?.phase === 'D' ? tags.phase : null,
   error: Boolean(tags?.error),
   players: Array.isArray(tags?.players) ? tags.players : [],
 })
+
+function TeamAddInput({ onAdd }: { onAdd: (teamName: string) => void }) {
+  const [draft, setDraft] = useState('')
+
+  const submit = () => {
+    const teamName = draft.trim()
+    if (!teamName) return
+    onAdd(teamName)
+    setDraft('')
+  }
+
+  return (
+    <div className="team-add-row">
+      <input
+        className="team-add-input"
+        aria-label="Add team name"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            submit()
+          }
+        }}
+        placeholder="Team name"
+      />
+      <button
+        className="team-add-btn"
+        type="button"
+        aria-label="Add team"
+        onClick={submit}
+      >
+        +
+      </button>
+    </div>
+  )
+}
 
 const createProject = (file: File): ProjectData => ({
   id: crypto.randomUUID(),
   name: file.name.replace(/\.[^.]+$/, '') || file.name,
   videoFileName: file.name,
   duration: 0,
+  teams: [],
   markers: [],
   clips: [],
   annotations: [],
@@ -37,6 +76,82 @@ const fmt = (s: number) => {
   const m = Math.floor(t / 60)
   const sec = Math.floor(t % 60)
   return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
+function parseTimeInput(value: string): number | null {
+  const parts = value.trim().split(':')
+  if (parts.length === 1) {
+    const s = parseFloat(parts[0])
+    return isNaN(s) || s < 0 ? null : s
+  }
+  if (parts.length === 2) {
+    const m = parseInt(parts[0], 10)
+    const s = parseFloat(parts[1])
+    if (isNaN(m) || isNaN(s) || m < 0 || s < 0 || s >= 60) return null
+    return m * 60 + s
+  }
+  return null
+}
+
+function ClipTimeEditor({
+  clip,
+  onUpdate,
+}: {
+  clip: { id: string; start: number; end: number }
+  onUpdate: (start: number, end: number) => void
+}) {
+  const [startDraft, setStartDraft] = useState(fmt(clip.start))
+  const [endDraft, setEndDraft] = useState(fmt(clip.end))
+
+  useEffect(() => { setStartDraft(fmt(clip.start)) }, [clip.start])
+  useEffect(() => { setEndDraft(fmt(clip.end)) }, [clip.end])
+
+  const commitStart = () => {
+    const t = parseTimeInput(startDraft)
+    if (t === null || t >= clip.end) {
+      setStartDraft(fmt(clip.start))
+      return
+    }
+    onUpdate(t, clip.end)
+  }
+
+  const commitEnd = () => {
+    const t = parseTimeInput(endDraft)
+    if (t === null || t <= clip.start) {
+      setEndDraft(fmt(clip.end))
+      return
+    }
+    onUpdate(clip.start, t)
+  }
+
+  const duration = Math.max(0, clip.end - clip.start)
+
+  return (
+    <div className="clip-time-editor">
+      <input
+        className="clip-time-input"
+        value={startDraft}
+        onChange={(event) => setStartDraft(event.target.value)}
+        onBlur={commitStart}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') commitStart()
+        }}
+        aria-label="Clip start time"
+      />
+      <span className="clip-time-sep">&rarr;</span>
+      <input
+        className="clip-time-input"
+        value={endDraft}
+        onChange={(event) => setEndDraft(event.target.value)}
+        onBlur={commitEnd}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') commitEnd()
+        }}
+        aria-label="Clip end time"
+      />
+      <span className="clip-time-duration">{Math.round(duration)}s</span>
+    </div>
+  )
 }
 
 export default function App() {
@@ -203,7 +318,7 @@ export default function App() {
       start: Math.max(0, currentTime - preRollSec),
       end: Math.min(project.duration, currentTime + 1),
       label: 'Clip',
-      labelIsCustom: false,
+      name: '',
       tags: { ...defaultClipTags, players: [] },
     }
     updateClips([...project.clips, clip].sort((a, b) => a.start - b.start))
@@ -214,17 +329,93 @@ export default function App() {
     updateAnnotations([...project.annotations, annotation])
   }
 
+  const addTeam = (teamName: string) => {
+    if (!project) return
+    const teams = Array.isArray(project.teams) ? project.teams : []
+    const nextTeamName = teamName.trim()
+    if (!nextTeamName || teams.includes(nextTeamName)) return
+
+    setProject({
+      ...project,
+      teams: [...teams, nextTeamName],
+      updatedAt: Date.now(),
+    })
+  }
+
+  const removeTeam = (teamName: string) => {
+    if (!project) return
+    const teams = Array.isArray(project.teams) ? project.teams : []
+    const nextClips = project.clips.map((clip) => {
+      const tags = normalizeClipTags(clip.tags)
+      if (tags.team !== teamName) {
+        return { ...clip, tags }
+      }
+
+      const nextTags = { ...tags, team: null }
+      const name = clip.name ?? ''
+      return {
+        ...clip,
+        name,
+        tags: nextTags,
+        label: generateClipLabel(nextTags, name),
+      }
+    })
+
+    setProject({
+      ...project,
+      teams: teams.filter((team) => team !== teamName),
+      clips: nextClips,
+      updatedAt: Date.now(),
+    })
+  }
+
+  const selectClipTeam = (clip: ClipRange, team: string | null) => {
+    const tags = normalizeClipTags(clip.tags)
+    updateClipTags(clip.id, {
+      ...tags,
+      team: tags.team === team ? null : team,
+    })
+  }
+
   const updateClipTags = (clipId: string, nextTags: ClipTags) => {
     if (!project) return
     updateClips(project.clips.map((clip) => {
       if (clip.id !== clipId) return clip
+      const name = clip.name ?? ''
       return {
         ...clip,
-        labelIsCustom: Boolean(clip.labelIsCustom),
+        name,
         tags: nextTags,
-        label: clip.labelIsCustom ? clip.label : generateClipLabel(nextTags),
+        label: generateClipLabel(nextTags, name),
       }
     }))
+  }
+
+  const renameClip = (clipId: string, name: string) => {
+    if (!project) return
+    updateClips(project.clips.map((clip) => {
+      if (clip.id !== clipId) return clip
+      const tags = normalizeClipTags(clip.tags)
+      return {
+        ...clip,
+        name,
+        tags,
+        label: generateClipLabel(tags, name),
+      }
+    }))
+  }
+
+  const updateClipRange = (clipId: string, start: number, end: number) => {
+    if (!project) return
+    const duration = project.duration
+    const clampedStart = Math.max(0, Math.min(start, duration))
+    const clampedEnd = Math.max(0, Math.min(end, duration))
+    if (clampedEnd <= clampedStart) return
+    updateClips(
+      project.clips
+        .map((clip) => clip.id === clipId ? { ...clip, start: clampedStart, end: clampedEnd } : clip)
+        .sort((a, b) => a.start - b.start),
+    )
   }
 
   const toggleClipPhase = (clip: ClipRange, phase: 'O' | 'D') => {
@@ -379,10 +570,31 @@ export default function App() {
               <div className="panel-header">Project</div>
               <div className="panel-body">
                 {project ? (
-                  <dl className="metadata-list">
-                    <div><dt>File</dt><dd title={project.videoFileName}>{project.videoFileName}</dd></div>
-                    <div><dt>Duration</dt><dd>{fmt(project.duration)}</dd></div>
-                  </dl>
+                  <>
+                    <dl className="metadata-list">
+                      <div><dt>File</dt><dd title={project.videoFileName}>{project.videoFileName}</dd></div>
+                      <div><dt>Duration</dt><dd>{fmt(project.duration)}</dd></div>
+                    </dl>
+                    <div className="team-section">
+                      <div className="team-section__title">Teams</div>
+                      <div className="team-list">
+                        {(project.teams ?? []).map((team) => (
+                          <span className="team-badge" key={team}>
+                            {team}
+                            <button
+                              className="team-badge__remove"
+                              type="button"
+                              aria-label={`Remove ${team}`}
+                              onClick={() => removeTeam(team)}
+                            >
+                              x
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <TeamAddInput onAdd={addTeam} />
+                    </div>
+                  </>
                 ) : (
                   <span className="panel-empty">No project open</span>
                 )}
@@ -420,7 +632,8 @@ export default function App() {
                                 {clip.label}
                               </span>
                               <span className="clip-row__range">
-                                {fmt(clip.start)} &rarr; {fmt(clip.end)}
+                                {fmt(clip.start)} &rarr; {fmt(clip.end)}&nbsp;
+                                <span className="clip-row__duration">({Math.round(clip.end - clip.start)}s)</span>
                               </span>
                             </div>
                             <button
@@ -449,6 +662,25 @@ export default function App() {
 
                           {isExpanded && (
                             <div className="clip-tags" onClick={(event) => event.stopPropagation()}>
+                              <ClipTimeEditor
+                                clip={clip}
+                                onUpdate={(start, end) => updateClipRange(clip.id, start, end)}
+                              />
+                              {(project.teams ?? []).length > 0 && (
+                                <div className="clip-tag-row">
+                                  <span className="clip-tags__label">Team</span>
+                                  {(project.teams ?? []).map((team) => (
+                                    <button
+                                      className={`tag-btn${tags.team === team ? ' tag-btn--active-team' : ''}`}
+                                      key={team}
+                                      onClick={() => selectClipTeam(clip, team)}
+                                      type="button"
+                                    >
+                                      {team}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                               <div className="clip-tag-row">
                                 <button
                                   className={`tag-btn${tags.phase === 'O' ? ' tag-btn--active-phase' : ''}`}
@@ -503,6 +735,16 @@ export default function App() {
                                     }
                                   }}
                                   placeholder="+"
+                                />
+                              </div>
+                              <div className="clip-tag-row">
+                                <span className="clip-tags__label">Name</span>
+                                <input
+                                  className="clip-name-input"
+                                  aria-label="Clip play name"
+                                  value={clip.name ?? ''}
+                                  onChange={(event) => renameClip(clip.id, event.target.value)}
+                                  placeholder="Play name"
                                 />
                               </div>
                             </div>

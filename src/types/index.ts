@@ -8,6 +8,7 @@ export type Marker = {
 }
 
 export type ClipTags = {
+  team: string | null
   phase: 'O' | 'D' | null
   error: boolean
   players: string[]
@@ -18,7 +19,7 @@ export type ClipRange = {
   start: number
   end: number
   label: string
-  labelIsCustom: boolean
+  name: string
   tags: ClipTags
 }
 
@@ -34,6 +35,7 @@ export type ProjectData = {
   name: string
   videoFileName: string
   duration: number
+  teams: string[]
   markers: Marker[]
   clips: ClipRange[]
   annotations: Annotation[]

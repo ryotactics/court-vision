@@ -23,10 +23,15 @@ const updateProject = (
 ): ProjectData | null =>
   project ? { ...project, ...patch, updatedAt: Date.now() } : project
 
+const normalizeProject = (project: ProjectData): ProjectData => ({
+  ...project,
+  teams: Array.isArray(project.teams) ? project.teams : [],
+})
+
 export const useProjectStore = create<ProjectStore>((set) => ({
   project: null,
   saveStatus: 'idle',
-  setProject: (project) => set({ project, saveStatus: 'idle' }),
+  setProject: (project) => set({ project: normalizeProject(project), saveStatus: 'idle' }),
   updateMarkers: (markers) =>
     set((state) => ({
       project: updateProject(state.project, { markers }),

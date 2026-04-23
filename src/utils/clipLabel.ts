@@ -5,8 +5,12 @@ const formatPlayer = (player: string) => {
   return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
 }
 
-export function generateClipLabel(tags: ClipTags): string {
+export function generateClipLabel(tags: ClipTags, name: string): string {
   const parts: string[] = []
+
+  if (tags.team) {
+    parts.push(tags.team)
+  }
 
   if (tags.phase) {
     parts.push(tags.phase)
@@ -21,5 +25,8 @@ export function generateClipLabel(tags: ClipTags): string {
     parts.push(players.join('&'))
   }
 
-  return parts.length > 0 ? parts.join('_') : 'Clip'
+  const prefix = parts.length > 0 ? parts.join('_') : 'Clip'
+  const trimmedName = name.trim()
+
+  return trimmedName ? `${prefix}_${trimmedName}` : prefix
 }
