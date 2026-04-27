@@ -395,11 +395,17 @@
 
 .clip-time-editor {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
   padding: 6px 0 10px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 6px;
+}
+
+.clip-time-editor__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .btn-inout {
@@ -460,6 +466,47 @@
   color: var(--muted);
   min-width: 28px;
   text-align: right;
+}
+
+.clip-edge-control {
+  display: grid;
+  gap: 5px;
+}
+
+.clip-edge-control__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.clip-edge-control__header button,
+.clip-edge-nudges button {
+  min-height: 22px;
+  border-color: var(--border-mid);
+  color: var(--text);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.clip-edge-control__header button:hover,
+.clip-edge-nudges button:hover {
+  border-color: var(--accent);
+  color: var(--text-h);
+}
+
+.clip-edge-slider {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.clip-edge-nudges {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
 }
 
 .clip-tag-row {
