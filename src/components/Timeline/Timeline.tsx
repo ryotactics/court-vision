@@ -10,6 +10,8 @@ type TimelineProps = {
   zoomStart: number
   onZoomChange: (zoomLevel: number, zoomStart: number) => void
   onSeek: (time: number) => void
+  editingClipId?: string | null
+  onClipTrim?: (clipId: string, start: number, end: number) => void
 }
 
 const width = 1000
