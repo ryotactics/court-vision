@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import type { ClipRange, Marker } from '../../types'
 
 type TimelineProps = {
@@ -15,11 +15,22 @@ type TimelineProps = {
 }
 
 const width = 1000
-const svgHeight = 110
+const svgHeight = 92
 const rulerHeight = 24
-const trackTop = 30
-const trackHeight = 56
+const trackTop = 32
+const trackHeight = 40
 const tickSteps = [1, 5, 10, 30, 60, 300]
+const minClipDurationSec = 0.2
+
+type ClipDragMode = 'move' | 'start' | 'end'
+
+type ClipDragState = {
+  clipId: string
+  mode: ClipDragMode
+  pointerStartTime: number
+  clipStart: number
+  clipEnd: number
+}
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max)
@@ -40,9 +51,12 @@ export function Timeline({
   zoomStart,
   onZoomChange,
   onSeek,
+  editingClipId,
+  onClipTrim,
 }: TimelineProps) {
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [clipDrag, setClipDrag] = useState<ClipDragState | null>(null)
   const safeDuration = Math.max(duration, 0)
   const safeZoomLevel = Math.max(zoomLevel, 1)
   const visibleDuration = safeDuration > 0 ? safeDuration / safeZoomLevel : 0
@@ -85,14 +99,84 @@ export function Timeline({
     visibleStart,
   ])
 
-  const seekFromClientX = (clientX: number) => {
+  const timeFromClientX = (clientX: number) => {
     const bounds = svgRef.current?.getBoundingClientRect()
     if (!bounds || visibleDuration === 0) {
-      return
+      return null
     }
 
     const nextRatio = clamp((clientX - bounds.left) / bounds.width, 0, 1)
-    onSeek(visibleStart + nextRatio * visibleDuration)
+    return visibleStart + nextRatio * visibleDuration
+  }
+
+  const seekFromClientX = (clientX: number) => {
+    const nextTime = timeFromClientX(clientX)
+    if (nextTime === null) return
+    onSeek(nextTime)
+  }
+
+  const trimClip = (drag: ClipDragState, clientX: number) => {
+    const pointerTime = timeFromClientX(clientX)
+    if (pointerTime === null || !onClipTrim) return
+
+    if (drag.mode === 'start') {
+      const nextStart = clamp(pointerTime, 0, drag.clipEnd - minClipDurationSec)
+      onClipTrim(drag.clipId, nextStart, drag.clipEnd)
+      onSeek(nextStart)
+      return
+    }
+
+    if (drag.mode === 'end') {
+      const nextEnd = clamp(pointerTime, drag.clipStart + minClipDurationSec, safeDuration)
+      onClipTrim(drag.clipId, drag.clipStart, nextEnd)
+      onSeek(nextEnd)
+      return
+    }
+
+    const clipDuration = drag.clipEnd - drag.clipStart
+    const delta = pointerTime - drag.pointerStartTime
+    const nextStart = clamp(drag.clipStart + delta, 0, Math.max(0, safeDuration - clipDuration))
+    const nextEnd = nextStart + clipDuration
+    onClipTrim(drag.clipId, nextStart, nextEnd)
+    onSeek(nextStart)
+  }
+
+  const startClipDrag = (
+    event: ReactMouseEvent<SVGGElement | SVGRectElement>,
+    clip: ClipRange,
+    mode: ClipDragMode,
+  ) => {
+    if (!onClipTrim) return
+    event.preventDefault()
+    event.stopPropagation()
+
+    const pointerStartTime = timeFromClientX(event.clientX)
+    if (pointerStartTime === null) return
+
+    const dragState: ClipDragState = {
+      clipId: clip.id,
+      mode,
+      pointerStartTime,
+      clipStart: clip.start,
+      clipEnd: clip.end,
+    }
+
+    setIsDragging(true)
+    setClipDrag(dragState)
+
+    const handleMove = (moveEvent: MouseEvent) => {
+      trimClip(dragState, moveEvent.clientX)
+    }
+
+    const handleUp = () => {
+      setIsDragging(false)
+      setClipDrag(null)
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
   }
 
   return (
@@ -100,7 +184,7 @@ export function Timeline({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${width} ${svgHeight}`}
-        className={`timeline-svg ${isDragging ? 'timeline-svg--dragging' : ''}`}
+        className={`timeline-svg ${isDragging ? 'timeline-svg--dragging' : ''}${clipDrag ? ` timeline-svg--${clipDrag.mode}` : ''}`}
         role="img"
         onClick={(event) => seekFromClientX(event.clientX)}
         onMouseDown={(event) => {
@@ -154,21 +238,48 @@ export function Timeline({
           const clipStart = timeToX(clip.start)
           const clipEnd = timeToX(clip.end)
           const clipWidth = clipEnd - clipStart
+          const visibleClipX = clamp(clipStart, 0, width)
+          const visibleClipEnd = clamp(clipEnd, 0, width)
+          const visibleClipWidth = Math.max(visibleClipEnd - visibleClipX, 3)
+          const isEditing = editingClipId === clip.id
 
           return (
-            <g key={clip.id}>
+            <g
+              key={clip.id}
+              className={`timeline-clip-group${isEditing ? ' timeline-clip-group--editing' : ''}`}
+              onMouseDown={(event) => startClipDrag(event, clip, 'move')}
+              onClick={(event) => event.stopPropagation()}
+            >
               <rect
-                x={clamp(clipStart, 0, width)}
-                y={trackTop + 2}
-                width={Math.max(clipWidth, 3)}
-                height={trackHeight - 4}
-                rx="3"
+                x={visibleClipX}
+                y={trackTop + 3}
+                width={visibleClipWidth}
+                height={trackHeight - 6}
+                rx="5"
                 className="timeline-clip"
+              />
+              <rect
+                x={clamp(clipStart - 5, 0, width - 10)}
+                y={trackTop - 1}
+                width="10"
+                height={trackHeight + 2}
+                rx="3"
+                className="timeline-clip-handle timeline-clip-handle--start"
+                onMouseDown={(event) => startClipDrag(event, clip, 'start')}
+              />
+              <rect
+                x={clamp(clipEnd - 5, 0, width - 10)}
+                y={trackTop - 1}
+                width="10"
+                height={trackHeight + 2}
+                rx="3"
+                className="timeline-clip-handle timeline-clip-handle--end"
+                onMouseDown={(event) => startClipDrag(event, clip, 'end')}
               />
               {clipWidth > 30 && (
                 <text
                   x={clamp(clipStart + 6, 6, width - 80)}
-                  y={trackTop + 32}
+                  y={trackTop + 25}
                   className="timeline-clip-label"
                 >
                   {clip.label}
@@ -205,13 +316,13 @@ export function Timeline({
         })}
         <line
           x1={playheadX}
-          y1="0"
+          y1={trackTop - 9}
           x2={playheadX}
-          y2={svgHeight}
+          y2={trackTop + trackHeight + 9}
           className="timeline-playhead"
         />
         <polygon
-          points={`${playheadX - 6},0 ${playheadX + 6},0 ${playheadX},8`}
+          points={`${playheadX - 5},${trackTop - 12} ${playheadX + 5},${trackTop - 12} ${playheadX},${trackTop - 5}`}
           className="timeline-playhead-handle"
         />
       </svg>

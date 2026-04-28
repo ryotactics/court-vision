@@ -941,8 +941,10 @@ export default function App() {
               clips={project?.clips ?? []}
               zoomLevel={zoomLevel}
               zoomStart={zoomStart}
+              editingClipId={expandedClipId}
               onZoomChange={handleZoomChange}
               onSeek={seek}
+              onClipTrim={updateClipRange}
             />
           </div>
         </div>

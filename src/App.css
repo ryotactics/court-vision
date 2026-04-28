@@ -838,12 +838,17 @@
 .timeline-svg {
   display: block;
   width: 100%;
-  height: 110px;
+  height: 92px;
   cursor: pointer;
   user-select: none;
 }
 
 .timeline-svg--dragging { cursor: ew-resize; }
+
+.timeline-svg--move { cursor: grabbing; }
+
+.timeline-svg--start,
+.timeline-svg--end { cursor: col-resize; }
 
 .timeline-ruler-bg {
   fill: rgba(0,0,0,0.3);
@@ -865,9 +870,37 @@
   stroke-width: 1;
 }
 
+.timeline-clip-group {
+  cursor: grab;
+}
+
+.timeline-clip-group:active {
+  cursor: grabbing;
+}
+
 .timeline-clip {
   fill: var(--accent);
-  opacity: .55;
+  opacity: .5;
+  stroke: rgba(255,255,255,.14);
+  stroke-width: 1;
+}
+
+.timeline-clip-group--editing .timeline-clip {
+  opacity: .8;
+  stroke: var(--accent-light);
+  stroke-width: 2;
+}
+
+.timeline-clip-handle {
+  fill: var(--accent-light);
+  opacity: .9;
+  cursor: col-resize;
+}
+
+.timeline-clip-handle:hover,
+.timeline-clip-group--editing .timeline-clip-handle {
+  fill: #fff;
+  opacity: 1;
 }
 
 .timeline-clip-label {
@@ -888,13 +921,14 @@
 }
 
 .timeline-playhead {
-  stroke: #fff;
-  stroke-width: 1.5;
+  stroke: var(--text-h);
+  stroke-width: 2;
+  stroke-linecap: round;
   pointer-events: none;
 }
 
 .timeline-playhead-handle {
-  fill: #fff;
+  fill: var(--text-h);
   pointer-events: none;
 }
 
