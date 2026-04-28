@@ -16,6 +16,9 @@ const defaultClipTags: ClipTags = { team: null, phase: null, error: false, playe
 const zoomLevels = [1, 2, 5, 10, 20]
 const minClipDurationSec = 0.2
 
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max)
+
 const normalizeClipTags = (tags?: Partial<ClipTags>): ClipTags => ({
   team: typeof tags?.team === 'string' && tags.team.trim() ? tags.team : null,
   phase: tags?.phase === 'O' || tags?.phase === 'D' ? tags.phase : null,
@@ -320,7 +323,10 @@ export default function App() {
 
   const changeZoom = (direction: -1 | 1) => {
     const currentIndex = zoomLevels.indexOf(zoomLevel)
-    const nextIndex = (currentIndex + direction + zoomLevels.length) % zoomLevels.length
+    const safeCurrentIndex = currentIndex >= 0 ? currentIndex : 0
+    const nextIndex = clamp(safeCurrentIndex + direction, 0, zoomLevels.length - 1)
+    if (nextIndex === safeCurrentIndex) return
+
     const nextZoomLevel = zoomLevels[nextIndex]
     const duration = Math.max(project?.duration ?? 0, 0)
 
@@ -330,13 +336,12 @@ export default function App() {
       return
     }
 
-    const currentWindow = duration / zoomLevel
     const nextWindow = duration / nextZoomLevel
-    const center = zoomStart + currentWindow / 2
     const maxStart = Math.max(0, duration - nextWindow)
+    const anchorTime = clamp(currentTime, 0, duration)
 
     setZoomLevel(nextZoomLevel)
-    setZoomStart(Math.max(0, Math.min(center - nextWindow / 2, maxStart)))
+    setZoomStart(clamp(anchorTime - nextWindow / 2, 0, maxStart))
   }
 
   const handleZoomChange = (nextZoomLevel: number, nextZoomStart: number) => {
@@ -345,7 +350,7 @@ export default function App() {
     const maxStart = Math.max(0, duration - windowDuration)
 
     setZoomLevel(nextZoomLevel)
-    setZoomStart(Math.max(0, Math.min(nextZoomStart, maxStart)))
+    setZoomStart(clamp(nextZoomStart, 0, maxStart))
   }
 
   const addMarker = () => {
@@ -911,7 +916,7 @@ export default function App() {
                 className="zoom-btn"
                 type="button"
                 aria-label="Zoom out"
-                disabled={!project}
+                disabled={!project || zoomLevel === zoomLevels[0]}
                 onClick={() => changeZoom(-1)}
               >
                 −
@@ -921,7 +926,7 @@ export default function App() {
                 className="zoom-btn"
                 type="button"
                 aria-label="Zoom in"
-                disabled={!project}
+                disabled={!project || zoomLevel === zoomLevels[zoomLevels.length - 1]}
                 onClick={() => changeZoom(1)}
               >
                 +
