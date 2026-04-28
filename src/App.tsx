@@ -14,7 +14,6 @@ import { generateClipLabel } from './utils/clipLabel'
 
 const defaultClipTags: ClipTags = { team: null, phase: null, error: false, players: [] }
 const zoomLevels = [1, 2, 5, 10, 20]
-const minClipDurationSec = 0.2
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max)
@@ -80,128 +79,6 @@ const fmt = (s: number) => {
   const m = Math.floor(t / 60)
   const sec = Math.floor(t % 60)
   return `${m}:${sec.toString().padStart(2, '0')}`
-}
-
-function ClipTimeEditor({
-  clip,
-  currentTime,
-  projectDuration,
-  onUpdate,
-  onSeek,
-}: {
-  clip: ClipRange
-  currentTime: number
-  projectDuration: number
-  onUpdate: (start: number, end: number) => void
-  onSeek: (time: number) => void
-}) {
-  const duration = Math.max(0, clip.end - clip.start)
-  const safeProjectDuration = Math.max(projectDuration, clip.end, 0)
-
-  const updateStart = (nextStart: number) => {
-    const start = Math.max(0, Math.min(nextStart, clip.end - minClipDurationSec))
-    onUpdate(start, clip.end)
-    onSeek(start)
-  }
-
-  const updateEnd = (nextEnd: number) => {
-    const end = Math.min(safeProjectDuration, Math.max(nextEnd, clip.start + minClipDurationSec))
-    onUpdate(clip.start, end)
-    onSeek(end)
-  }
-
-  const setIn = () => {
-    const newStart = Math.max(0, Math.min(currentTime, safeProjectDuration))
-    const newEnd = newStart >= clip.end ? Math.min(safeProjectDuration, newStart + 1) : clip.end
-    onUpdate(newStart, newEnd)
-    onSeek(newStart)
-  }
-
-  const setOut = () => {
-    const newEnd = Math.max(0, Math.min(currentTime, safeProjectDuration))
-    const newStart = newEnd <= clip.start ? Math.max(0, newEnd - 1) : clip.start
-    onUpdate(newStart, newEnd)
-    onSeek(newEnd)
-  }
-
-  return (
-    <div className="clip-time-editor">
-      <div className="clip-time-editor__top">
-        <button
-          className="btn-inout btn-inout--in"
-          type="button"
-          onClick={setIn}
-          aria-label="Set In point to current time"
-        >
-          <span className="btn-inout__badge">IN</span>
-          <span className="btn-inout__ts">{fmt(clip.start)}</span>
-        </button>
-
-        <div className="clip-current-time">
-          <span className="clip-current-time__label">Now</span>
-          <span className="clip-current-time__val">{fmt(currentTime)}</span>
-        </div>
-
-        <button
-          className="btn-inout btn-inout--out"
-          type="button"
-          onClick={setOut}
-          aria-label="Set Out point to current time"
-        >
-          <span className="btn-inout__ts">{fmt(clip.end)}</span>
-          <span className="btn-inout__badge">OUT</span>
-        </button>
-
-        <span className="clip-time-duration">{Math.round(duration)}s</span>
-      </div>
-
-      <div className="clip-edge-control">
-        <div className="clip-edge-control__header">
-          <button type="button" onClick={() => onSeek(clip.start)} aria-label="Preview clip start">Start</button>
-          <span>{fmt(clip.start)}</span>
-        </div>
-        <input
-          className="clip-edge-slider"
-          type="range"
-          min="0"
-          max={safeProjectDuration}
-          step="0.1"
-          value={clip.start}
-          onChange={(event) => updateStart(Number(event.target.value))}
-          aria-label="Adjust clip start"
-        />
-        <div className="clip-edge-nudges">
-          <button type="button" onClick={() => updateStart(clip.start - 1)}>-1s</button>
-          <button type="button" onClick={() => updateStart(clip.start - 0.1)}>-0.1</button>
-          <button type="button" onClick={() => updateStart(clip.start + 0.1)}>+0.1</button>
-          <button type="button" onClick={() => updateStart(clip.start + 1)}>+1s</button>
-        </div>
-      </div>
-
-      <div className="clip-edge-control">
-        <div className="clip-edge-control__header">
-          <button type="button" onClick={() => onSeek(clip.end)} aria-label="Preview clip end">End</button>
-          <span>{fmt(clip.end)}</span>
-        </div>
-        <input
-          className="clip-edge-slider"
-          type="range"
-          min="0"
-          max={safeProjectDuration}
-          step="0.1"
-          value={clip.end}
-          onChange={(event) => updateEnd(Number(event.target.value))}
-          aria-label="Adjust clip end"
-        />
-        <div className="clip-edge-nudges">
-          <button type="button" onClick={() => updateEnd(clip.end - 1)}>-1s</button>
-          <button type="button" onClick={() => updateEnd(clip.end - 0.1)}>-0.1</button>
-          <button type="button" onClick={() => updateEnd(clip.end + 0.1)}>+0.1</button>
-          <button type="button" onClick={() => updateEnd(clip.end + 1)}>+1s</button>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 export default function App() {
@@ -725,13 +602,6 @@ export default function App() {
 
                           {isExpanded && (
                             <div className="clip-tags" onClick={(event) => event.stopPropagation()}>
-                              <ClipTimeEditor
-                                clip={clip}
-                                currentTime={currentTime}
-                                projectDuration={project.duration}
-                                onUpdate={(start, end) => updateClipRange(clip.id, start, end)}
-                                onSeek={seek}
-                              />
                               {(project.teams ?? []).length > 0 && (
                                 <div className="clip-tag-row">
                                   <span className="clip-tags__label">Team</span>
