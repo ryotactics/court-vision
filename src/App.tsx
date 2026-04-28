@@ -427,10 +427,13 @@ export default function App() {
   const exportExpandedClip = async () => {
     if (!expandedClip || !videoFile || isExporting || ffmpeg.isLoading) return
 
+    const clipIndex = Math.max(0, project?.clips.findIndex((clip) => clip.id === expandedClip.id) ?? 0) + 1
+    const exportFileName = `${clipIndex}_${expandedClip.label}.mp4`
+
     setIsExporting(true)
     try {
       await ffmpeg.load()
-      await ffmpeg.exportClip(videoFile, expandedClip.start, expandedClip.end, `${expandedClip.label}.mp4`)
+      await ffmpeg.exportClip(videoFile, expandedClip.start, expandedClip.end, exportFileName)
     } finally {
       setIsExporting(false)
     }
