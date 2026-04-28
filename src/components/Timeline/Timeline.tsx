@@ -29,7 +29,7 @@ type ClipDragMode = 'move' | 'start' | 'end'
 type ClipDragState = {
   clipId: string
   mode: ClipDragMode
-  pointerStartTime: number
+  pointerOffset: number
   clipStart: number
   clipEnd: number
 }
@@ -82,6 +82,7 @@ export function Timeline({
   }
 
   useEffect(() => {
+    if (clipDrag) return
     if (safeDuration <= 0 || safeZoomLevel <= 1) return
     if (currentTime >= visibleStart && currentTime <= visibleEnd) return
 
@@ -99,6 +100,7 @@ export function Timeline({
     visibleDuration,
     visibleEnd,
     visibleStart,
+    clipDrag,
   ])
 
   const timeFromClientX = (clientX: number) => {
@@ -122,22 +124,21 @@ export function Timeline({
     if (pointerTime === null || !onClipTrim) return
 
     if (drag.mode === 'start') {
-      const nextStart = clamp(pointerTime, 0, drag.clipEnd - minClipDurationSec)
+      const nextStart = clamp(pointerTime - drag.pointerOffset, 0, drag.clipEnd - minClipDurationSec)
       onClipTrim(drag.clipId, nextStart, drag.clipEnd)
       onSeek(nextStart)
       return
     }
 
     if (drag.mode === 'end') {
-      const nextEnd = clamp(pointerTime, drag.clipStart + minClipDurationSec, safeDuration)
+      const nextEnd = clamp(pointerTime - drag.pointerOffset, drag.clipStart + minClipDurationSec, safeDuration)
       onClipTrim(drag.clipId, drag.clipStart, nextEnd)
       onSeek(nextEnd)
       return
     }
 
     const clipDuration = drag.clipEnd - drag.clipStart
-    const delta = pointerTime - drag.pointerStartTime
-    const nextStart = clamp(drag.clipStart + delta, 0, Math.max(0, safeDuration - clipDuration))
+    const nextStart = clamp(pointerTime - drag.pointerOffset, 0, Math.max(0, safeDuration - clipDuration))
     const nextEnd = nextStart + clipDuration
     onClipTrim(drag.clipId, nextStart, nextEnd)
     onSeek(nextStart)
@@ -180,7 +181,7 @@ export function Timeline({
     const dragState: ClipDragState = {
       clipId: clip.id,
       mode,
-      pointerStartTime,
+      pointerOffset: pointerStartTime - (mode === 'end' ? clip.end : clip.start),
       clipStart: clip.start,
       clipEnd: clip.end,
     }
@@ -273,6 +274,8 @@ export function Timeline({
           const visibleClipEnd = clamp(clipEnd, 0, width)
           const visibleClipWidth = Math.max(visibleClipEnd - visibleClipX, 3)
           const isEditing = editingClipId === clip.id
+          const isStartVisible = clip.start >= visibleStart && clip.start <= visibleEnd
+          const isEndVisible = clip.end >= visibleStart && clip.end <= visibleEnd
 
           return (
             <g
@@ -289,24 +292,28 @@ export function Timeline({
                 rx="5"
                 className="timeline-clip"
               />
-              <rect
-                x={clamp(clipStart - 5, 0, width - 10)}
-                y={clipTrackTop - 1}
-                width="10"
-                height={clipTrackHeight + 2}
-                rx="3"
-                className="timeline-clip-handle timeline-clip-handle--start"
-                onPointerDown={(event) => startClipDrag(event, clip, 'start')}
-              />
-              <rect
-                x={clamp(clipEnd - 5, 0, width - 10)}
-                y={clipTrackTop - 1}
-                width="10"
-                height={clipTrackHeight + 2}
-                rx="3"
-                className="timeline-clip-handle timeline-clip-handle--end"
-                onPointerDown={(event) => startClipDrag(event, clip, 'end')}
-              />
+              {isStartVisible && (
+                <rect
+                  x={clipStart - 5}
+                  y={clipTrackTop - 1}
+                  width="10"
+                  height={clipTrackHeight + 2}
+                  rx="3"
+                  className="timeline-clip-handle timeline-clip-handle--start"
+                  onPointerDown={(event) => startClipDrag(event, clip, 'start')}
+                />
+              )}
+              {isEndVisible && (
+                <rect
+                  x={clipEnd - 5}
+                  y={clipTrackTop - 1}
+                  width="10"
+                  height={clipTrackHeight + 2}
+                  rx="3"
+                  className="timeline-clip-handle timeline-clip-handle--end"
+                  onPointerDown={(event) => startClipDrag(event, clip, 'end')}
+                />
+              )}
               {clipWidth > 30 && (
                 <text
                   x={clamp(clipStart + 6, 6, width - 80)}
