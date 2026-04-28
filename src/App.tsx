@@ -92,6 +92,7 @@ export default function App() {
   const [preRollSec, setPreRollSec] = useState(10)
   const [postRollSec, setPostRollSec] = useState(5)
   const [playingClipId, setPlayingClipId] = useState<string | null>(null)
+  const [isClipPaused, setIsClipPaused] = useState(false)
   const [zoomLevel, setZoomLevel] = useState(1)
   const [zoomStart, setZoomStart] = useState(0)
   const videoPlayerRef = useRef<HTMLVideoElement | null>(null)
@@ -145,6 +146,7 @@ export default function App() {
     setVideoFile(file)
     setCurrentTime(0)
     setPlayingClipId(null)
+    setIsClipPaused(false)
     setZoomLevel(1)
     setZoomStart(0)
     setProject(createProject(file))
@@ -169,12 +171,14 @@ export default function App() {
     const playingClip = project.clips.find((clip) => clip.id === playingClipId)
     if (!playingClip) {
       setPlayingClipId(null)
+      setIsClipPaused(false)
       return
     }
 
     if (time >= playingClip.end) {
       videoPlayerRef.current?.pause()
       setPlayingClipId(null)
+      setIsClipPaused(false)
     }
   }
 
@@ -182,9 +186,12 @@ export default function App() {
     const player = videoPlayerRef.current
     if (!player) return
 
-    if (playingClipId === clip.id && !player.paused) {
+    const isSameClip = playingClipId === clip.id
+
+    if (isSameClip && !player.paused) {
       player.pause()
-      setPlayingClipId(null)
+      setCurrentTime(player.currentTime)
+      setIsClipPaused(true)
       return
     }
 
@@ -192,10 +199,18 @@ export default function App() {
       player.pause()
     }
 
-    player.currentTime = clip.start
-    setCurrentTime(clip.start)
+    const resumeTime = isSameClip && currentTime >= clip.start && currentTime < clip.end
+      ? currentTime
+      : clip.start
+
+    player.currentTime = resumeTime
+    setCurrentTime(resumeTime)
     setPlayingClipId(clip.id)
-    void player.play().catch(() => setPlayingClipId(null))
+    setIsClipPaused(false)
+    void player.play().catch(() => {
+      setPlayingClipId(null)
+      setIsClipPaused(false)
+    })
   }
 
   const changeZoom = (direction: -1 | 1) => {
@@ -389,6 +404,7 @@ export default function App() {
     if (playingClipId === clipId) {
       videoPlayerRef.current?.pause()
       setPlayingClipId(null)
+      setIsClipPaused(false)
     }
     if (expandedClipId === clipId) {
       setExpandedClipId(null)
@@ -434,13 +450,20 @@ export default function App() {
       if (!player) return
 
       if (player.paused) {
-        setPlayingClipId(null)
-        void player.play().catch(() => undefined)
+        if (playingClipId) {
+          setIsClipPaused(false)
+        }
+        void player.play().catch(() => {
+          setPlayingClipId(null)
+          setIsClipPaused(false)
+        })
         return
       }
 
       player.pause()
-      setPlayingClipId(null)
+      if (playingClipId) {
+        setIsClipPaused(true)
+      }
     },
     onSeek: (delta) => {
       if (isKeyboardHelpOpen || !videoUrl) return
@@ -549,7 +572,8 @@ export default function App() {
                     {project.clips.map((clip) => {
                       const tags = normalizeClipTags(clip.tags)
                       const isExpanded = expandedClipId === clip.id
-                      const isPlayingClip = playingClipId === clip.id
+                      const isActiveClipPlayback = playingClipId === clip.id
+                      const isPlayingClip = isActiveClipPlayback && !isClipPaused
 
                       return (
                         <div className="clip-item" key={clip.id}>
@@ -577,7 +601,7 @@ export default function App() {
                               </span>
                             </div>
                             <button
-                              className={`clip-row__play${isPlayingClip ? ' clip-row__play--active' : ''}`}
+                              className={`clip-row__play${isActiveClipPlayback ? ' clip-row__play--active' : ''}`}
                               aria-label={`${isPlayingClip ? 'Pause' : 'Play'} ${clip.label}`}
                               onClick={(event) => {
                                 event.stopPropagation()
