@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { ClipRange, Marker } from '../../types'
 
 type TimelineProps = {
@@ -15,10 +15,12 @@ type TimelineProps = {
 }
 
 const width = 1000
-const svgHeight = 92
+const svgHeight = 104
 const rulerHeight = 24
-const trackTop = 32
-const trackHeight = 40
+const scrubTop = 30
+const scrubHeight = 10
+const clipTrackTop = 56
+const clipTrackHeight = 34
 const tickSteps = [1, 5, 10, 30, 60, 300]
 const minClipDurationSec = 0.2
 
@@ -55,7 +57,7 @@ export function Timeline({
   onClipTrim,
 }: TimelineProps) {
   const svgRef = useRef<SVGSVGElement | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
+  const [isScrubbing, setIsScrubbing] = useState(false)
   const [clipDrag, setClipDrag] = useState<ClipDragState | null>(null)
   const safeDuration = Math.max(duration, 0)
   const safeZoomLevel = Math.max(zoomLevel, 1)
@@ -141,8 +143,30 @@ export function Timeline({
     onSeek(nextStart)
   }
 
+  const startScrub = (event: ReactPointerEvent<SVGRectElement | SVGCircleElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setIsScrubbing(true)
+    seekFromClientX(event.clientX)
+
+    const handleMove = (moveEvent: PointerEvent) => {
+      seekFromClientX(moveEvent.clientX)
+    }
+
+    const handleUp = () => {
+      setIsScrubbing(false)
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+      window.removeEventListener('pointercancel', handleUp)
+    }
+
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+    window.addEventListener('pointercancel', handleUp)
+  }
+
   const startClipDrag = (
-    event: ReactMouseEvent<SVGGElement | SVGRectElement>,
+    event: ReactPointerEvent<SVGGElement | SVGRectElement>,
     clip: ClipRange,
     mode: ClipDragMode,
   ) => {
@@ -161,22 +185,22 @@ export function Timeline({
       clipEnd: clip.end,
     }
 
-    setIsDragging(true)
     setClipDrag(dragState)
 
-    const handleMove = (moveEvent: MouseEvent) => {
+    const handleMove = (moveEvent: PointerEvent) => {
       trimClip(dragState, moveEvent.clientX)
     }
 
     const handleUp = () => {
-      setIsDragging(false)
       setClipDrag(null)
-      window.removeEventListener('mousemove', handleMove)
-      window.removeEventListener('mouseup', handleUp)
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+      window.removeEventListener('pointercancel', handleUp)
     }
 
-    window.addEventListener('mousemove', handleMove)
-    window.addEventListener('mouseup', handleUp)
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+    window.addEventListener('pointercancel', handleUp)
   }
 
   return (
@@ -184,25 +208,8 @@ export function Timeline({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${width} ${svgHeight}`}
-        className={`timeline-svg ${isDragging ? 'timeline-svg--dragging' : ''}${clipDrag ? ` timeline-svg--${clipDrag.mode}` : ''}`}
+        className={`timeline-svg${isScrubbing ? ' timeline-svg--scrubbing' : ''}${clipDrag ? ` timeline-svg--${clipDrag.mode}` : ''}`}
         role="img"
-        onClick={(event) => seekFromClientX(event.clientX)}
-        onMouseDown={(event) => {
-          setIsDragging(true)
-          seekFromClientX(event.clientX)
-
-          const handleMove = (moveEvent: MouseEvent) => {
-            seekFromClientX(moveEvent.clientX)
-          }
-          const handleUp = () => {
-            setIsDragging(false)
-            window.removeEventListener('mousemove', handleMove)
-            window.removeEventListener('mouseup', handleUp)
-          }
-
-          window.addEventListener('mousemove', handleMove)
-          window.addEventListener('mouseup', handleUp)
-        }}
       >
         <title>Project timeline</title>
         <rect x="0" y="0" width={width} height={rulerHeight} className="timeline-ruler-bg" />
@@ -226,9 +233,33 @@ export function Timeline({
         })}
         <rect
           x="0"
-          y={trackTop}
+          y={scrubTop}
           width={width}
-          height={trackHeight}
+          height={scrubHeight}
+          rx={scrubHeight / 2}
+          className="timeline-scrub-track"
+        />
+        <rect
+          x="0"
+          y={scrubTop}
+          width={playheadX}
+          height={scrubHeight}
+          rx={scrubHeight / 2}
+          className="timeline-scrub-progress"
+        />
+        <rect
+          x="0"
+          y={scrubTop - 12}
+          width={width}
+          height={scrubHeight + 24}
+          className="timeline-scrub-hitbox"
+          onPointerDown={startScrub}
+        />
+        <rect
+          x="0"
+          y={clipTrackTop}
+          width={width}
+          height={clipTrackHeight}
           rx="4"
           className="timeline-track-bg"
         />
@@ -247,39 +278,39 @@ export function Timeline({
             <g
               key={clip.id}
               className={`timeline-clip-group${isEditing ? ' timeline-clip-group--editing' : ''}`}
-              onMouseDown={(event) => startClipDrag(event, clip, 'move')}
+              onPointerDown={(event) => startClipDrag(event, clip, 'move')}
               onClick={(event) => event.stopPropagation()}
             >
               <rect
                 x={visibleClipX}
-                y={trackTop + 3}
+                y={clipTrackTop + 3}
                 width={visibleClipWidth}
-                height={trackHeight - 6}
+                height={clipTrackHeight - 6}
                 rx="5"
                 className="timeline-clip"
               />
               <rect
                 x={clamp(clipStart - 5, 0, width - 10)}
-                y={trackTop - 1}
+                y={clipTrackTop - 1}
                 width="10"
-                height={trackHeight + 2}
+                height={clipTrackHeight + 2}
                 rx="3"
                 className="timeline-clip-handle timeline-clip-handle--start"
-                onMouseDown={(event) => startClipDrag(event, clip, 'start')}
+                onPointerDown={(event) => startClipDrag(event, clip, 'start')}
               />
               <rect
                 x={clamp(clipEnd - 5, 0, width - 10)}
-                y={trackTop - 1}
+                y={clipTrackTop - 1}
                 width="10"
-                height={trackHeight + 2}
+                height={clipTrackHeight + 2}
                 rx="3"
                 className="timeline-clip-handle timeline-clip-handle--end"
-                onMouseDown={(event) => startClipDrag(event, clip, 'end')}
+                onPointerDown={(event) => startClipDrag(event, clip, 'end')}
               />
               {clipWidth > 30 && (
                 <text
                   x={clamp(clipStart + 6, 6, width - 80)}
-                  y={trackTop + 25}
+                  y={clipTrackTop + 22}
                   className="timeline-clip-label"
                 >
                   {clip.label}
@@ -297,9 +328,9 @@ export function Timeline({
             <g key={marker.id}>
               <line
                 x1={markerX}
-                y1={rulerHeight}
+                y1={clipTrackTop - 5}
                 x2={markerX}
-                y2={svgHeight}
+                y2={clipTrackTop + clipTrackHeight + 5}
                 className="timeline-marker"
                 style={{ stroke: marker.color }}
               />
@@ -316,14 +347,17 @@ export function Timeline({
         })}
         <line
           x1={playheadX}
-          y1={trackTop - 9}
+          y1={scrubTop - 8}
           x2={playheadX}
-          y2={trackTop + trackHeight + 9}
+          y2={scrubTop + scrubHeight + 8}
           className="timeline-playhead"
         />
-        <polygon
-          points={`${playheadX - 5},${trackTop - 12} ${playheadX + 5},${trackTop - 12} ${playheadX},${trackTop - 5}`}
+        <circle
+          cx={playheadX}
+          cy={scrubTop + scrubHeight / 2}
+          r="8"
           className="timeline-playhead-handle"
+          onPointerDown={startScrub}
         />
       </svg>
       <div className="timeline-meta">

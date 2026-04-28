@@ -838,12 +838,13 @@
 .timeline-svg {
   display: block;
   width: 100%;
-  height: 92px;
-  cursor: pointer;
+  height: 104px;
+  cursor: default;
   user-select: none;
+  touch-action: none;
 }
 
-.timeline-svg--dragging { cursor: ew-resize; }
+.timeline-svg--scrubbing { cursor: ew-resize; }
 
 .timeline-svg--move { cursor: grabbing; }
 
@@ -868,6 +869,19 @@
   fill: rgba(255,255,255,0.04);
   stroke: var(--border-mid);
   stroke-width: 1;
+}
+
+.timeline-scrub-track {
+  fill: rgba(255,255,255,.12);
+}
+
+.timeline-scrub-progress {
+  fill: var(--accent-light);
+}
+
+.timeline-scrub-hitbox {
+  fill: transparent;
+  cursor: ew-resize;
 }
 
 .timeline-clip-group {
@@ -929,7 +943,10 @@
 
 .timeline-playhead-handle {
   fill: var(--text-h);
-  pointer-events: none;
+  stroke: var(--panel);
+  stroke-width: 2;
+  cursor: ew-resize;
+  pointer-events: auto;
 }
 
 .timeline-meta {
