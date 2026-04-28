@@ -14,6 +14,7 @@ import { generateClipLabel } from './utils/clipLabel'
 
 const defaultClipTags: ClipTags = { team: null, phase: null, error: false, players: [] }
 const zoomLevels = [1, 2, 5, 10, 20]
+const minClipDurationSec = 0.2
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max)
@@ -79,6 +80,113 @@ const fmt = (s: number) => {
   const m = Math.floor(t / 60)
   const sec = Math.floor(t % 60)
   return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
+const fmtSeconds = (s: number) => {
+  const rounded = Math.round(Math.max(0, s) * 10) / 10
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+}
+
+function ClipTimeNumberEditor({
+  clip,
+  projectDuration,
+  onUpdate,
+  onSeek,
+}: {
+  clip: ClipRange
+  projectDuration: number
+  onUpdate: (start: number, end: number) => void
+  onSeek: (time: number) => void
+}) {
+  const [startDraft, setStartDraft] = useState(fmtSeconds(clip.start))
+  const [endDraft, setEndDraft] = useState(fmtSeconds(clip.end))
+  const safeProjectDuration = Math.max(projectDuration, clip.end, 0)
+
+  useEffect(() => {
+    setStartDraft(fmtSeconds(clip.start))
+  }, [clip.start])
+
+  useEffect(() => {
+    setEndDraft(fmtSeconds(clip.end))
+  }, [clip.end])
+
+  const commitStart = () => {
+    const parsed = Number(startDraft)
+    if (!Number.isFinite(parsed)) {
+      setStartDraft(fmtSeconds(clip.start))
+      return
+    }
+
+    const start = clamp(parsed, 0, Math.max(0, clip.end - minClipDurationSec))
+    onUpdate(start, clip.end)
+    onSeek(start)
+    setStartDraft(fmtSeconds(start))
+  }
+
+  const commitEnd = () => {
+    const parsed = Number(endDraft)
+    if (!Number.isFinite(parsed)) {
+      setEndDraft(fmtSeconds(clip.end))
+      return
+    }
+
+    const minEnd = Math.min(safeProjectDuration, clip.start + minClipDurationSec)
+    const end = clamp(parsed, minEnd, safeProjectDuration)
+    onUpdate(clip.start, end)
+    onSeek(end)
+    setEndDraft(fmtSeconds(end))
+  }
+
+  return (
+    <div className="clip-time-numbers">
+      <label className="clip-time-number">
+        <span>Start</span>
+        <input
+          aria-label="Clip start time in seconds"
+          inputMode="decimal"
+          min="0"
+          max={clip.end - minClipDurationSec}
+          onBlur={commitStart}
+          onChange={(event) => setStartDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.currentTarget.blur()
+            }
+            if (event.key === 'Escape') {
+              setStartDraft(fmtSeconds(clip.start))
+              event.currentTarget.blur()
+            }
+          }}
+          step="0.1"
+          type="number"
+          value={startDraft}
+        />
+      </label>
+      <label className="clip-time-number">
+        <span>End</span>
+        <input
+          aria-label="Clip end time in seconds"
+          inputMode="decimal"
+          min={clip.start + minClipDurationSec}
+          max={safeProjectDuration}
+          onBlur={commitEnd}
+          onChange={(event) => setEndDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.currentTarget.blur()
+            }
+            if (event.key === 'Escape') {
+              setEndDraft(fmtSeconds(clip.end))
+              event.currentTarget.blur()
+            }
+          }}
+          step="0.1"
+          type="number"
+          value={endDraft}
+        />
+      </label>
+    </div>
+  )
 }
 
 export default function App() {
@@ -161,6 +269,14 @@ export default function App() {
     const t = Math.max(0, Math.min(time, project?.duration ?? time))
     setCurrentTime(t)
     if (videoPlayerRef.current) videoPlayerRef.current.currentTime = t
+
+    if (!playingClipId || !project) return
+
+    const playingClip = project.clips.find((clip) => clip.id === playingClipId)
+    if (!playingClip || t < playingClip.start || t >= playingClip.end) {
+      setPlayingClipId(null)
+      setIsClipPaused(false)
+    }
   }
 
   const handleTimeUpdate = (time: number) => {
@@ -412,6 +528,13 @@ export default function App() {
     }
   }
 
+  const clearClipSelection = () => {
+    setExpandedClipId(null)
+    setPlayingClipId(null)
+    setIsClipPaused(false)
+    setPlayerDraft('')
+  }
+
   const toggleClipExpanded = (clipId: string) => {
     setExpandedClipId((current) => {
       const nextId = current === clipId ? null : clipId
@@ -439,9 +562,7 @@ export default function App() {
     }
   }
 
-  const selectedClipId = project?.clips.find((clip) => (
-    currentTime >= clip.start && currentTime <= clip.end
-  ))?.id
+  const selectedClipId = expandedClipId ?? playingClipId
 
   const expandedClip = project?.clips.find((clip) => clip.id === expandedClipId)
 
@@ -629,6 +750,21 @@ export default function App() {
 
                           {isExpanded && (
                             <div className="clip-tags" onClick={(event) => event.stopPropagation()}>
+                              <div className="clip-selection-actions">
+                                <ClipTimeNumberEditor
+                                  clip={clip}
+                                  projectDuration={project.duration}
+                                  onUpdate={(start, end) => updateClipRange(clip.id, start, end)}
+                                  onSeek={seek}
+                                />
+                                <button
+                                  className="clip-clear-btn"
+                                  onClick={clearClipSelection}
+                                  type="button"
+                                >
+                                  Clear
+                                </button>
+                              </div>
                               {(project.teams ?? []).length > 0 && (
                                 <div className="clip-tag-row">
                                   <span className="clip-tags__label">Team</span>

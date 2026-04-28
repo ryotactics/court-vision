@@ -104,12 +104,18 @@ export function Timeline({
   ])
 
   const timeFromClientX = (clientX: number) => {
-    const bounds = svgRef.current?.getBoundingClientRect()
-    if (!bounds || visibleDuration === 0) {
+    const svg = svgRef.current
+    const transform = svg?.getScreenCTM()
+    if (!svg || !transform || visibleDuration === 0) {
       return null
     }
 
-    const nextRatio = clamp((clientX - bounds.left) / bounds.width, 0, 1)
+    const point = svg.createSVGPoint()
+    point.x = clientX
+    point.y = 0
+
+    const svgX = point.matrixTransform(transform.inverse()).x
+    const nextRatio = clamp(svgX / width, 0, 1)
     return visibleStart + nextRatio * visibleDuration
   }
 
