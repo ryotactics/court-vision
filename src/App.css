@@ -393,6 +393,45 @@
   background: rgba(0,0,0,.2);
 }
 
+.clip-time-numbers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.clip-time-number {
+  display: grid;
+  gap: 4px;
+}
+
+.clip-time-number span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.clip-time-number input {
+  width: 100%;
+  min-width: 0;
+  background: var(--panel-alt);
+  border: 1px solid var(--border-mid);
+  border-radius: 4px;
+  color: var(--text-h);
+  font: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding: 5px 6px;
+}
+
+.clip-time-number input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
 .clip-tag-row {
   display: flex;
   gap: 6px;
