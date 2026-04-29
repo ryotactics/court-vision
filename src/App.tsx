@@ -14,7 +14,6 @@ import { generateClipLabel } from './utils/clipLabel'
 
 const defaultClipTags: ClipTags = { team: null, phase: null, error: false, players: [] }
 const zoomLevels = [1, 2, 5, 10, 20]
-const minClipDurationSec = 0.2
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max)
@@ -41,6 +40,7 @@ function TeamAddInput({ onAdd }: { onAdd: (teamName: string) => void }) {
       <input
         className="team-add-input"
         aria-label="Add team name"
+        autoComplete="off"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
@@ -80,113 +80,6 @@ const fmt = (s: number) => {
   const m = Math.floor(t / 60)
   const sec = Math.floor(t % 60)
   return `${m}:${sec.toString().padStart(2, '0')}`
-}
-
-const fmtSeconds = (s: number) => {
-  const rounded = Math.round(Math.max(0, s) * 10) / 10
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
-}
-
-function ClipTimeNumberEditor({
-  clip,
-  projectDuration,
-  onUpdate,
-  onSeek,
-}: {
-  clip: ClipRange
-  projectDuration: number
-  onUpdate: (start: number, end: number) => void
-  onSeek: (time: number) => void
-}) {
-  const [startDraft, setStartDraft] = useState(fmtSeconds(clip.start))
-  const [endDraft, setEndDraft] = useState(fmtSeconds(clip.end))
-  const safeProjectDuration = Math.max(projectDuration, clip.end, 0)
-
-  useEffect(() => {
-    setStartDraft(fmtSeconds(clip.start))
-  }, [clip.start])
-
-  useEffect(() => {
-    setEndDraft(fmtSeconds(clip.end))
-  }, [clip.end])
-
-  const commitStart = () => {
-    const parsed = Number(startDraft)
-    if (!Number.isFinite(parsed)) {
-      setStartDraft(fmtSeconds(clip.start))
-      return
-    }
-
-    const start = clamp(parsed, 0, Math.max(0, clip.end - minClipDurationSec))
-    onUpdate(start, clip.end)
-    onSeek(start)
-    setStartDraft(fmtSeconds(start))
-  }
-
-  const commitEnd = () => {
-    const parsed = Number(endDraft)
-    if (!Number.isFinite(parsed)) {
-      setEndDraft(fmtSeconds(clip.end))
-      return
-    }
-
-    const minEnd = Math.min(safeProjectDuration, clip.start + minClipDurationSec)
-    const end = clamp(parsed, minEnd, safeProjectDuration)
-    onUpdate(clip.start, end)
-    onSeek(end)
-    setEndDraft(fmtSeconds(end))
-  }
-
-  return (
-    <div className="clip-time-numbers">
-      <label className="clip-time-number">
-        <span>Start</span>
-        <input
-          aria-label="Clip start time in seconds"
-          inputMode="decimal"
-          min="0"
-          max={clip.end - minClipDurationSec}
-          onBlur={commitStart}
-          onChange={(event) => setStartDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.currentTarget.blur()
-            }
-            if (event.key === 'Escape') {
-              setStartDraft(fmtSeconds(clip.start))
-              event.currentTarget.blur()
-            }
-          }}
-          step="0.1"
-          type="number"
-          value={startDraft}
-        />
-      </label>
-      <label className="clip-time-number">
-        <span>End</span>
-        <input
-          aria-label="Clip end time in seconds"
-          inputMode="decimal"
-          min={clip.start + minClipDurationSec}
-          max={safeProjectDuration}
-          onBlur={commitEnd}
-          onChange={(event) => setEndDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.currentTarget.blur()
-            }
-            if (event.key === 'Escape') {
-              setEndDraft(fmtSeconds(clip.end))
-              event.currentTarget.blur()
-            }
-          }}
-          step="0.1"
-          type="number"
-          value={endDraft}
-        />
-      </label>
-    </div>
-  )
 }
 
 export default function App() {
@@ -679,7 +572,9 @@ export default function App() {
                           </span>
                         ))}
                       </div>
-                      {(project.teams ?? []).length < 2 && <TeamAddInput onAdd={addTeam} />}
+                      {(project.teams ?? []).length < 2 && (
+                        <TeamAddInput key={(project.teams ?? []).length} onAdd={addTeam} />
+                      )}
                     </div>
                   </>
                 ) : (
@@ -750,21 +645,6 @@ export default function App() {
 
                           {isExpanded && (
                             <div className="clip-tags" onClick={(event) => event.stopPropagation()}>
-                              <div className="clip-selection-actions">
-                                <ClipTimeNumberEditor
-                                  clip={clip}
-                                  projectDuration={project.duration}
-                                  onUpdate={(start, end) => updateClipRange(clip.id, start, end)}
-                                  onSeek={seek}
-                                />
-                                <button
-                                  className="clip-clear-btn"
-                                  onClick={clearClipSelection}
-                                  type="button"
-                                >
-                                  Clear
-                                </button>
-                              </div>
                               {(project.teams ?? []).length > 0 && (
                                 <div className="clip-tag-row">
                                   <span className="clip-tags__label">Team</span>
@@ -836,13 +716,21 @@ export default function App() {
                                   placeholder="+"
                                 />
                               </div>
-                              <div className="clip-tag-row">
+                              <div className="clip-tag-row clip-tag-row--name">
                                 <span className="clip-tags__label">Name</span>
                                 <input
                                   className="clip-name-input"
                                   aria-label="Clip play name"
                                   value={clip.name ?? ''}
                                   onChange={(event) => renameClip(clip.id, event.target.value)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === 'Enter') {
+                                      event.preventDefault()
+                                      event.stopPropagation()
+                                      event.currentTarget.blur()
+                                      clearClipSelection()
+                                    }
+                                  }}
                                   placeholder="Play name"
                                 />
                               </div>
