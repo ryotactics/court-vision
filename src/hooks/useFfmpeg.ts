@@ -67,7 +67,6 @@ export function useFfmpeg() {
       ])
 
       const data = await ffmpeg.readFile(outputName)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const raw: unknown = typeof data === 'string' ? new TextEncoder().encode(data) : data
       const url = URL.createObjectURL(new Blob([raw as BlobPart], { type: 'video/mp4' }))
       const anchor = document.createElement('a')
