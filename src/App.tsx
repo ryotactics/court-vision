@@ -63,6 +63,10 @@ function TeamAddInput({ onAdd }: { onAdd: (teamName: string) => void }) {
   )
 }
 
+// Handlers closed over by list rendering are still purity-checked. Keep this
+// outside the component so the timestamp is not treated as a render-time call.
+const currentTimestamp = () => Date.now()
+
 const createProject = (file: File): ProjectData => ({
   id: crypto.randomUUID(),
   name: file.name.replace(/\.[^.]+$/, '') || file.name,
@@ -314,7 +318,7 @@ export default function App() {
       ...project,
       teams: teams.filter((team) => team !== teamName),
       clips: nextClips,
-      updatedAt: Date.now(),
+      updatedAt: currentTimestamp(),
     })
   }
 
